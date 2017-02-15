@@ -3,50 +3,76 @@ import scipy as S
 import pylab as P
 import matplotlib.gridspec as gridspec
 import cPickle
-import minuit
+import iminuit as minuit
 from scipy import linalg  
 import scipy.interpolate as inter
-from ToolBox import Astro
-import sys,os,optparse
 import copy
 from scipy.stats import norm as NORMAL_LAW
-print 'ANdAlOuSe'
-
-def read_option():
-
-    usage = "usage: [%prog] -p pca_input -s spectra_input -m model_output [otheroptions]"
-    parser = optparse.OptionParser(usage=usage)
-
-    parser.add_option("--directoryIN","-d",dest="directory_input",help="directory where you have all your supernova txt files",default=None)
-    parser.add_option("--bin","-b",dest="bin",help="bin of the wavelength",default=None)
-    parser.add_option("--mean","-m",dest="mean",help="mean function for the GP",default=None)
-    parser.add_option("--directoryOUT","-D",dest="directory_output",help="directory where you will put your prediction",default=None)
-    parser.add_option("--sn","-s",dest="sn_list",help="sn list",default=None)
-    parser.add_option("--N","-N",dest="SN",help="number sn",default=100)
-    parser.add_option("--mc","-M",dest="MC",help="Monte_carlo",default=False,action="store_true")
-
-    option,args = parser.parse_args()
-
-    if not option.MC:
-        if not option.directory_input: raise parser.error(" ERROR: give me a input directory")
-        if not option.bin: raise parser.error(" ERROR: give me a bin number")
-        if not option.mean: raise parser.error(" ERROR: give me a mean")
-        if not option.directory_output: raise parser.error(" ERROR: give me a output directory")
-
-    return option
-
 
 
 def Interpolate_mean(Old_binning,Mean_function,New_binning):
+    
+    """
+    Function to interpolate 1D mean function on the new grid 
+    Interpolation is done using cubic spline from scipy 
 
-     SPLINE=inter.InterpolatedUnivariateSpline(Old_binning,Mean_function)
+    Old_binning : 1D numpy array or 1D list. Represent the 
+    binning of the mean function on the original grid. Should not 
+    be sparce. For SNIa it would be the phases of the Mean function 
+
+    Mean_function : 1D numpy array or 1D list. The mean function 
+    used inside Gaussian Process, observed at the Old binning. Would 
+    be the average Light curve for SNIa. 
+
+    New_binning : 1D numpy array or 1D list. The new grid where you 
+    want to project your mean function. For example, it will be the 
+    observed SNIa phases.
+
+    output : Y,  Mean function on the new grid (New_binning)
+
+
+    """
+
+    SPLINE=inter.InterpolatedUnivariateSpline(Old_binning,Mean_function)
      
-     Y=SPLINE(New_binning)
+    Y=SPLINE(New_binning)
 
-     return Y 
+    return Y 
 
 
 def Covariance_matrix(y_err,Time,sigma,l,nugget,floor=0.03):
+
+    """
+    1D RBF kernel
+
+    K(t_i,t_j) = sigma^2 exp(-0.5 ((t_i-t_j)/l)^2) 
+               + (y_err[i]^2 + nugget^2 + floor^2) delta_ij
+
+    y_err : 1D numpy array or 1D list. Error from data 
+    observation. For SNIa, it would be the error on the 
+    observed flux/magnitude.
+    
+    Time : 1D numpy array or 1D list. Grid of observation.
+    For SNIa it would be observation phases. 
+
+    sigma : float. Kernel amplitude hyperparameter. 
+    It explain the standard deviation from the mean function.
+
+    l : float. Kernel correlation length hyperparameter. 
+    It explain at wich scale one data point afect the 
+    position of an other.
+
+    nugget : float. Diagonal dispertion that you can add in 
+    order to explain intrinsic variability not discribe by 
+    the RBF kernel.
+
+    floor : float. Diagonal error that you can add to your 
+    RBF Kernel if you know the value of your intrinsic dispersion. 
+
+
+    output : Cov. 2D numpy array, shape = (len(Time),len(Time))
+
+    """
 
     Cov=N.zeros((len(Time),len(Time)))
     
@@ -59,7 +85,47 @@ def Covariance_matrix(y_err,Time,sigma,l,nugget,floor=0.03):
 
     return Cov
 
+
+
 def Log_Likelihood_GP(y,y_err,Mean_Y,Time,sigma,l,nugget):
+
+    """
+    Log likehood to maximize in order to find hyperparameter
+    with 1D RBF kernel. 
+
+    The key point is that all matrix inversion are 
+    done by SVD decomposition + (if needed) pseudo-inverse.
+    Slow but robust 
+
+    y : 1D numpy array or 1D list. Observed data at the 
+    observed grid (Time). For SNIa it would be light curve
+
+    y_err : 1D numpy array or 1D list. Observed error fron 
+    data on the observed grid (Time). For SNIa it would be 
+    error on data light curve points. 
+
+    Mean_Y : 1D numpy array or 1D list. Average function 
+    that train Gaussian Process. Should be on the same grid 
+    as observation (y). For SNIa it would be average light 
+    curve.
+
+    Time : 1D numpy array or 1D list. Grid of observation.
+    For SNIa, it would be light curves phases.
+
+    sigma : float. Kernel amplitude hyperparameter. 
+    It explain the standard deviation from the mean function.
+    
+    l : float. Kernel correlation length hyperparameter.
+    It explain at wich scale one data point afect the
+    position of an other.                                                                                                                                   
+
+    nugget : float. Diagonal dispertion that you can add in
+    order to explain intrinsic variability not discribe by
+    the RBF kernel.                                                                                                                                         
+
+    output : float. Log_Likelihood
+    
+    """
 
     NT=len(Time)
     K=Covariance_matrix(y_err,Time,sigma,l,nugget)
@@ -70,7 +136,7 @@ def Log_Likelihood_GP(y,y_err,Mean_Y,Time,sigma,l,nugget):
     # Pseudo-inverse 
     Filtre=(s>10**-15)
     if N.sum(Filtre)!=len(Filtre):
-         print 'ANDALOUSE :', len(Filtre)-N.sum(Filtre)
+         print 'Pseudo-inverse decomposition :', len(Filtre)-N.sum(Filtre)
     inv_K=N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
     Log_Likelihood=(-0.5*(N.dot((y-Mean_Y),N.dot(inv_K,(y_ket-Mean_Y_ket)))))
 
@@ -83,7 +149,62 @@ def Log_Likelihood_GP(y,y_err,Mean_Y,Time,sigma,l,nugget):
 
 
 
-class find_global_hyperparameters:
+class Gaussian_process:
+
+    """
+    
+    Gaussian process interpolator 
+
+    For a given data or a set of data (with associated error(s))
+    and assuming a given average function of your data, this 
+    class will provide you the interpolation of your data on 
+    a new grid where your average funtion is difine. It provides
+    also covariance matrix of the interpolation. 
+
+    y : list of numpy array. Data that you want to interpolate. 
+    Each numpy array represent one of your data that you want to 
+    interpolate. For SNIa it would represent different light curves 
+    observed at different phases 
+
+    y_err : list of numpy array with the same structure as y. 
+    Error of y. 
+    
+    Time : list of numpy array with the same structure as y. Observation phase 
+    of y. Each numpy array could have different size, but should correspond to 
+    y. For SNIa it would represent the differents epoch observation of differents 
+    light curves. 
+
+    Time_mean : numpy array with same shape as Mean_Y. Grid of the 
+    choosen average function. Don't need to be similar as Time. 
+
+    Mean_Y : numpy array. Average function of your data. Not reasonable 
+    choice of average function will provide bad result, because interpolation 
+    from Gaussian Process use the average function as a prior. 
+
+    example : 
+
+
+    gp = Gaussian_process(y,y_err,Time,Time_mean,Mean_Y)  
+    gp.find_hyperparameters(sigma_guess=0.5,l_guess=8.)
+    gp.get_prediction(new_binning=N.linspace(-12,42,19))
+
+    output : 
+
+    GP.Prediction --> interpolation on the new grid
+    GP.covariance_matrix --> covariance matrix from interpoaltion on the
+                             on the new grid 
+    GP.hyperparameters --> Fitted hyperparameters  
+ 
+
+    optional :
+        If you think that you have a systematic difference between your data 
+        and your data apply this function before to fit hyperparameter or 
+        interpolation. If you think to remove a global constant for each data, put it 
+        in the diff option 
+
+        gp.substract_Mean(diff=None)
+
+    """
 
     def __init__(self,y,y_err,Time,Time_mean,Mean_Y):
 
@@ -98,6 +219,13 @@ class find_global_hyperparameters:
         self.CONTEUR_MEAN=0
 
     def substract_Mean(self,diff=None):
+
+        """
+        in order to avoid systematic difference between 
+        average function and the data 
+
+        """
+        
         self.SUBSTRACT_MEAN=True
         self.Mean_Y_in_BINNING_Y=[]
         self.TRUE_mean=copy.deepcopy(self.Mean_Y)
@@ -117,6 +245,12 @@ class find_global_hyperparameters:
 
     def compute_Log_Likelihood(self,sigma,l):
 
+        """
+        compute the global likelihood for all your data 
+        for a set of hyperparameters 
+
+        """
+
         Nugget=0
         Log_Likelihood=0
         for sn in range(self.N_sn):
@@ -127,43 +261,69 @@ class find_global_hyperparameters:
             
 
     def init_hyperparameter_sigma(self):
-         
-         self.sigma_init=0.
-         W=0
-         for sn in range(self.N_sn):
-              Mean_Y=Interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
-              W+=len(self.Time[sn])
-              self.sigma_init+=(1./len(self.Time[sn]))*N.sum((Mean_Y-self.y[sn])**2)
 
-         self.sigma_init/=W
-         self.sigma_init=N.sqrt(self.sigma_init)
+        """
+        initialize first guess for hyperparameter sigma
+        
+        """
+        
+        self.sigma_init=0.
+        W=0
+        for sn in range(self.N_sn):
+            Mean_Y=Interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+            W+=len(self.Time[sn])
+            self.sigma_init+=(1./len(self.Time[sn]))*N.sum((Mean_Y-self.y[sn])**2)
+
+        self.sigma_init/=W
+        self.sigma_init=N.sqrt(self.sigma_init)
          
          
 
     def init_hyperparameter_l(self):
 
-         residuals=N.zeros((self.N_sn,len(self.Mean_Y)))
+        """
+        initialize first guess for hyperparameter l
+        
+        """
+        
+
+        residuals=N.zeros((self.N_sn,len(self.Mean_Y)))
          
-         for sn in range(self.N_sn):
+        for sn in range(self.N_sn):
 
-              y_interpolate=Interpolate_mean(self.Time[sn],self.y[sn],self.Time_mean)
-              residuals[sn]=y_interpolate-self.Mean_Y
+            y_interpolate=Interpolate_mean(self.Time[sn],self.y[sn],self.Time_mean)
+            residuals[sn]=y_interpolate-self.Mean_Y
 
-         self.init_hyperparameter_sigma()     
+        self.init_hyperparameter_sigma()     
 
-         self.Cov_matrix=(1./self.N_sn)*N.dot(residuals.T,residuals)
-         self.L_matrix_guess=N.zeros(N.shape(self.Cov_matrix))
-         for i in range(len(self.Time_mean)):
-              for j in range(len(self.Time_mean)):
-                   self.L_matrix_guess[i,j]=N.sqrt(0.5*((self.Time_mean[i]-self.Time_mean[j])**2/(abs(2.*N.log(self.sigma_init)-self.Cov_matrix[i,j]))))
+        self.Cov_matrix=(1./self.N_sn)*N.dot(residuals.T,residuals)
+        self.L_matrix_guess=N.zeros(N.shape(self.Cov_matrix))
+        for i in range(len(self.Time_mean)):
+            for j in range(len(self.Time_mean)):
+                self.L_matrix_guess[i,j]=N.sqrt(0.5*((self.Time_mean[i]-self.Time_mean[j])**2/(abs(2.*N.log(self.sigma_init)-self.Cov_matrix[i,j]))))
 
-         self.Filtre=(self.L_matrix_guess!=0.)
+        self.Filtre=(self.L_matrix_guess!=0.)
 
-         self.l_init=N.mean(self.L_matrix_guess[self.Filtre])
+        self.l_init=N.mean(self.L_matrix_guess[self.Filtre])
 
 
 
-    def find_hyperparameters(self,sigma_guess=None,l_guess=None):     
+    def find_hyperparameters(self,sigma_guess=None,l_guess=None):
+
+        """
+        Search hyperparameter using a maximum likelihood
+
+        maximize with iminuit for the moment 
+
+        sigma_guess : Default = None and will used a specific function 
+        to find it. Could be initialize with a float if you have a good 
+        expectation.  
+
+        l_guess : Default = None and will used a specific function 
+        to find it. Could be initialize with a float if you have a good 
+        expectation.  
+
+        """
 
         if sigma_guess is None :
              self.init_hyperparameter_sigma()
@@ -194,6 +354,12 @@ class find_global_hyperparameters:
 
 
     def map_Log_Likelihood(self,window_sig=10.,window_l=10.):
+
+        """
+        plot the log likelihood nearby the solution in order to see 
+        if you are in a global maximum or a local maximum.
+
+        """
 
         self.find_hyperparameters()
 
@@ -243,6 +409,20 @@ class find_global_hyperparameters:
 
     def get_prediction(self,new_binning=None,COV=True):
 
+        """
+
+        Compute your interpolation
+
+        new_binning : numpy array Default = None. It will 
+        provide you the interpolation on the same grid as 
+        the data. Useful to compute pull distribution. 
+        Store with a new grid in order to get interpolation 
+        ouside the old grid. Will be the same for all the data 
+
+        COV : Boolean, Default = True. Return covariance matrix of 
+        interpoaltion. 
+
+        """
         if self.SUBSTRACT_MEAN and self.CONTEUR_MEAN!=0:
             self.substract_Mean(diff=self.diff)
             self.CONTEUR_MEAN=0
@@ -777,7 +957,7 @@ if __name__=="__main__":
         LCMC.build_difference_mean()
 
         
-        GP=find_global_hyperparameters(LCMC.Y,LCMC.Y_err,LCMC.TIME,LCMC.Time_Mean,LCMC.Mean)
+        GP=Gaussian_process(LCMC.Y,LCMC.Y_err,LCMC.TIME,LCMC.Time_Mean,LCMC.Mean)
         #if option.bin==83 or option.bin==84:
         #GP.find_hyperparameters(sigma_guess=0.362771407636,l_guess=7.7891745456)
         GP.substract_Mean(diff=LCMC.difference)
