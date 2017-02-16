@@ -10,37 +10,38 @@ import copy
 from scipy.stats import norm as NORMAL_LAW
 
 
-def Interpolate_mean(Old_binning,Mean_function,New_binning):
+def interpolate_mean(old_binning,mean_function,new_binning):
     
     """
     Function to interpolate 1D mean function on the new grid 
     Interpolation is done using cubic spline from scipy 
 
-    Old_binning : 1D numpy array or 1D list. Represent the 
+    old_binning : 1D numpy array or 1D list. Represent the 
     binning of the mean function on the original grid. Should not 
     be sparce. For SNIa it would be the phases of the Mean function 
 
-    Mean_function : 1D numpy array or 1D list. The mean function 
+    mean_function : 1D numpy array or 1D list. The mean function 
     used inside Gaussian Process, observed at the Old binning. Would 
     be the average Light curve for SNIa. 
 
-    New_binning : 1D numpy array or 1D list. The new grid where you 
+    new_binning : 1D numpy array or 1D list. The new grid where you 
     want to project your mean function. For example, it will be the 
     observed SNIa phases.
 
-    output : Y,  Mean function on the new grid (New_binning)
+    output : mean_interpolate,  Mean function on the new grid (New_binning)
 
 
     """
 
-    SPLINE=inter.InterpolatedUnivariateSpline(Old_binning,Mean_function)
-     
-    Y=SPLINE(New_binning)
+    cubic_spline = inter.InterpolatedUnivariateSpline(old_binning,mean_function)
+      
+    mean_interpolate = cubic_spline(new_binning)
 
-    return Y 
+    return mean_interpolate 
 
 
-def Covariance_matrix(y_err,Time,sigma,l,nugget,floor=0.03):
+
+def RBF_kernel_1D(Time,sigma,l,nugget,floor=0.00,y_err=None):
 
     """
     1D RBF kernel
@@ -48,9 +49,6 @@ def Covariance_matrix(y_err,Time,sigma,l,nugget,floor=0.03):
     K(t_i,t_j) = sigma^2 exp(-0.5 ((t_i-t_j)/l)^2) 
                + (y_err[i]^2 + nugget^2 + floor^2) delta_ij
 
-    y_err : 1D numpy array or 1D list. Error from data 
-    observation. For SNIa, it would be the error on the 
-    observed flux/magnitude.
     
     Time : 1D numpy array or 1D list. Grid of observation.
     For SNIa it would be observation phases. 
@@ -69,19 +67,26 @@ def Covariance_matrix(y_err,Time,sigma,l,nugget,floor=0.03):
     floor : float. Diagonal error that you can add to your 
     RBF Kernel if you know the value of your intrinsic dispersion. 
 
+    y_err : 1D numpy array or 1D list. Error from data 
+    observation. For SNIa, it would be the error on the 
+    observed flux/magnitude.
+
 
     output : Cov. 2D numpy array, shape = (len(Time),len(Time))
 
     """
 
-    Cov=N.zeros((len(Time),len(Time)))
+    if y_err is None:
+        y_err = N.zeros_like(Time)
+    
+    Cov = N.zeros((len(Time),len(Time)))
     
     for i in range(len(Time)):
         for j in range(len(Time)):
-            Cov[i,j]=(sigma**2)*N.exp(-0.5*((Time[i]-Time[j])/l)**2)
+            Cov[i,j] = (sigma**2)*N.exp(-0.5*((Time[i]-Time[j])/l)**2)
             
             if i==j:
-                Cov[i,j]+=y_err[i]**2+floor**2+nugget**2
+                Cov[i,j] += y_err[i]**2+floor**2+nugget**2
 
     return Cov
 
@@ -127,23 +132,23 @@ def Log_Likelihood_GP(y,y_err,Mean_Y,Time,sigma,l,nugget):
     
     """
 
-    NT=len(Time)
-    K=Covariance_matrix(y_err,Time,sigma,l,nugget)
-    y_ket=y.reshape(len(y),1)
-    Mean_Y_ket=Mean_Y.reshape(len(Mean_Y),1)
+    NT = len(Time)
+    K = RBF_kernel_1D(Time,sigma,l,nugget,y_err=y_err)
+    y_ket = y.reshape(len(y),1)
+    Mean_Y_ket = Mean_Y.reshape(len(Mean_Y),1)
     #SVD deconposition for K matrix
-    U,s,V=N.linalg.svd(K)
+    U,s,V = N.linalg.svd(K)
     # Pseudo-inverse 
-    Filtre=(s>10**-15)
+    Filtre = (s>10**-15)
     if N.sum(Filtre)!=len(Filtre):
          print 'Pseudo-inverse decomposition :', len(Filtre)-N.sum(Filtre)
-    inv_K=N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
-    Log_Likelihood=(-0.5*(N.dot((y-Mean_Y),N.dot(inv_K,(y_ket-Mean_Y_ket)))))
+    inv_K = N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
+    Log_Likelihood = (-0.5*(N.dot((y-Mean_Y),N.dot(inv_K,(y_ket-Mean_Y_ket)))))
 
-    Log_Likelihood+=N.log((1./(2*N.pi)**(NT/2.)))
-    Log_Likelihood-=0.5*N.sum(N.log(s[Filtre]))
+    Log_Likelihood += N.log((1./(2*N.pi)**(NT/2.)))
+    Log_Likelihood -= 0.5*N.sum(N.log(s[Filtre]))
     if N.sum(Filtre)!=len(Filtre):
-         Log_Likelihood-=0.5*(len(Filtre)-N.sum(Filtre))*N.log(10**-15)
+         Log_Likelihood -= 0.5*(len(Filtre)-N.sum(Filtre))*N.log(10**-15)
     
     return Log_Likelihood
 
@@ -389,7 +394,7 @@ class Gaussian_process:
 
         self.K=[]
         for sn in range(self.N_sn):
-            self.K.append(Covariance_matrix(self.y_err[sn],self.Time[sn],self.hyperparameters['sigma'],self.hyperparameters['l'],0.))
+            self.K.append(RBF_kernel_1D(self.Time[sn],self.hyperparameters['sigma'],self.hyperparameters['l'],0.,y_err=self.y_err[sn]))
         
     def compute_HT_matrix(self,NEW_binning):
         
@@ -496,9 +501,9 @@ class Gaussian_process:
             #else:
             self.covariance_matrix.append(-N.dot(self.HT[sn],N.dot(self.inv_K[sn],self.HT[sn].T)))
             if self.as_the_same_time:
-                self.covariance_matrix[sn]+=Covariance_matrix(N.zeros(len(self.new_binning[sn])),self.new_binning[sn],self.hyperparameters['sigma'],self.hyperparameters['l'],0)
+                self.covariance_matrix[sn]+=RBF_kernel_1D(self.new_binning[sn],self.hyperparameters['sigma'],self.hyperparameters['l'],0)
             else:
-                self.covariance_matrix[sn]+=Covariance_matrix(N.zeros(len(self.new_binning)),self.new_binning,self.hyperparameters['sigma'],self.hyperparameters['l'],0)
+                self.covariance_matrix[sn]+=RBF_kernel_1D(self.new_binning,self.hyperparameters['sigma'],self.hyperparameters['l'],0)
 
             
     def get_pull(self,PLOT=True):
@@ -821,7 +826,7 @@ class generate_light_curves_hyper_parameter(generate_light_curves_SUGAR_MC):
         generate_light_curves_SUGAR_MC.__init__(self,SED)
         self.sigma=sigma
         self.l=l
-        self.K=Covariance_matrix(N.zeros(len(self.Time)),self.Time ,self.sigma,self.l,0.)
+        self.K=RBF_kernel_1D(self.Time ,self.sigma,self.l,0.)
         
 
     def generate_supernovae(self,Bin,N_sn):
