@@ -1,4 +1,6 @@
-
+.. image:: https://readthedocs.org/projects/cosmogp/badge/?version=latest
+   :target: http://cosmogp.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
 .. image:: https://landscape.io/github/PFLeget/cosmogp/master/landscape.svg?style=flat
    :target: https://landscape.io/github/PFLeget/cosmogp/master
    :alt: Code Health
