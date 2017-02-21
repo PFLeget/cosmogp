@@ -1,5 +1,4 @@
 import numpy as N
-import pylab as P
 import matplotlib.gridspec as gridspec
 import iminuit as minuit
 import scipy.interpolate as inter
@@ -219,6 +218,7 @@ class Gaussian_process:
         self.SUBSTRACT_MEAN=False
         self.hyperparameters={}
         self.CONTEUR_MEAN=0
+        self.diff=N.zeros(self.N_sn)
 
     def substract_Mean(self,diff=None):
 
@@ -234,7 +234,6 @@ class Gaussian_process:
         for sn in range(self.N_sn):
             MEAN_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             if diff is None:
-                self.diff=N.zeros(self.N_sn)
                 self.Mean_Y_in_BINNING_Y.append(MEAN_Y+N.mean(self.y[sn]-MEAN_Y))
                 self.y[sn]-=(MEAN_Y+N.mean(self.y[sn]-MEAN_Y))
             else:
@@ -384,6 +383,7 @@ class Gaussian_process:
                 print SIGMA[i,j],l[i,j]
                 print self.Log_Likelihood[0]
 
+        import pylab as P
         P.pcolor(SIGMA, l, self.Map_log_l)
 
           
@@ -514,6 +514,8 @@ class Gaussian_process:
                 self.PULL.append(pull[t])
         Moyenne_pull,ecart_type_pull=NORMAL_LAW.fit(self.PULL)
         if PLOT:
+            import pylab as P
+            
             P.hist(self.PULL,bins=60,normed=True)
             xmin, xmax = P.xlim() 
             X = N.linspace(xmin, xmax, 100) 
@@ -524,6 +526,8 @@ class Gaussian_process:
             P.show()
 
     def plot_prediction(self,sn,Error=False,TITLE=None):
+
+        import pylab as P 
         
         if not self.as_the_same_time:
             Time_predict=self.new_binning
@@ -627,7 +631,8 @@ class build_pull:
 
 
     def plot_result(self,BIN=60,Lambda=None):
-        
+
+        import pylab as P
         P.hist(self.PULL,bins=BIN,normed=True)
         xmin, xmax = P.xlim()
         MAX=max([abs(xmin),abs(xmax)])
@@ -694,7 +699,7 @@ class compare_spline_GP:
 
         Time_predict=self.new_binning
 
-
+        import pylab as P 
         P.figure(figsize=(12,8))
 
         CST_top=N.mean(self.Pred)
@@ -729,6 +734,8 @@ class compare_spline_GP:
 
     def control_plot(self):
 
+        import pylab as P
+        
         P.figure()
         for i in range(len(self.sn_name)):
             P.scatter(self.TIME[i],self.Y[i],c='b')

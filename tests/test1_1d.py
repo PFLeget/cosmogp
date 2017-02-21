@@ -95,7 +95,7 @@ class generate_light_curves_hyper_parameter(generate_light_curves_SUGAR_MC):
         generate_light_curves_SUGAR_MC.__init__(self,SED)
         self.sigma=sigma
         self.l=l
-        self.K=RBF_kernel_1D(self.Time ,self.sigma,self.l,0.)
+        self.K=Gaussian_process.RBF_kernel_1D(self.Time ,self.sigma,self.l,0.)
 
 
     def generate_supernovae(self,Bin,N_sn):
