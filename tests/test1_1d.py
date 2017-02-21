@@ -1,6 +1,6 @@
-
-
-
+import numpy as N
+from cosmogp import Gaussian_process
+import pylab as P
 
 
 class generate_light_curves_SUGAR_MC:
@@ -8,9 +8,6 @@ class generate_light_curves_SUGAR_MC:
     def __init__(self,SED):
         
         SED=N.loadtxt(SED)
-        
-        #SED=cPickle.load(open(SED))
-        #SED_at_max=cPickle.load(open(SED_at_max))
         
         self.alpha=SED[:,3:6]
         self.M0=SED[:,2]
@@ -68,7 +65,7 @@ class generate_light_curves_SUGAR_MC:
         for i in range(self.N_sn):
             T=N.linspace(self.Time[0],self.Time[-1],10+i)
         
-            Supernovae_MC.append(interpolate_mean(self.TIME[i],self.Supernovae_MC[i],T))
+            Supernovae_MC.append(Gaussian_process.interpolate_mean(self.TIME[i],self.Supernovae_MC[i],T))
             TIME.append(T)
             
             
@@ -194,7 +191,7 @@ class Build_light_curves_from_SNF_data:
             self.Mean_new_binning=N.zeros(delta_lambda*len(Phase))
             
             for Bin in range(delta_lambda):
-                self.Mean_new_binning[Bin*DELTA:(Bin+1)*DELTA]=interpolate_mean(self.Time_Mean,data[:,2][Bin*delta_mean:(Bin+1)*delta_mean],Phase)
+                self.Mean_new_binning[Bin*DELTA:(Bin+1)*DELTA]=Gaussian_process.interpolate_mean(self.Time_Mean,data[:,2][Bin*delta_mean:(Bin+1)*delta_mean],Phase)
 
             reorder = N.arange(delta_lambda*DELTA).reshape(delta_lambda, DELTA).T.reshape(-1)
             self.Mean_new_binning=self.Mean_new_binning[reorder]
