@@ -235,7 +235,7 @@ class Gaussian_process:
         self.Mean_Y_in_BINNING_Y=[]
         self.TRUE_mean=copy.deepcopy(self.Mean_Y)
         for sn in range(self.N_sn):
-            MEAN_Y=Interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+            MEAN_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             if diff is None:
                 self.diff=N.zeros(self.N_sn)
                 self.Mean_Y_in_BINNING_Y.append(MEAN_Y+N.mean(self.y[sn]-MEAN_Y))
@@ -259,7 +259,7 @@ class Gaussian_process:
         Nugget=0
         Log_Likelihood=0
         for sn in range(self.N_sn):
-            Mean_Y=Interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+            Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],sigma,l,Nugget)
         print 'sigma : ', sigma, ' l: ', l, ' Log_like: ', Log_Likelihood[0]
         self.Log_Likelihood=Log_Likelihood
@@ -275,7 +275,7 @@ class Gaussian_process:
         self.sigma_init=0.
         W=0
         for sn in range(self.N_sn):
-            Mean_Y=Interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+            Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             W+=len(self.Time[sn])
             self.sigma_init+=(1./len(self.Time[sn]))*N.sum((Mean_Y-self.y[sn])**2)
 
@@ -296,7 +296,7 @@ class Gaussian_process:
          
         for sn in range(self.N_sn):
 
-            y_interpolate=Interpolate_mean(self.Time[sn],self.y[sn],self.Time_mean)
+            y_interpolate=interpolate_mean(self.Time[sn],self.y[sn],self.Time_mean)
             residuals[sn]=y_interpolate-self.Mean_Y
 
         self.init_hyperparameter_sigma()     
@@ -450,14 +450,14 @@ class Gaussian_process:
                 self.Prediction.append(N.zeros(len(self.new_binning[i])))
 
         if not self.as_the_same_time:
-            self.New_mean= Interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning)
+            self.New_mean= interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning)
 
         self.inv_K=[]
         for sn in range(self.N_sn):
             if self.as_the_same_time:
-                self.New_mean= Interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning[sn])
+                self.New_mean= interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning[sn])
             self.inv_K.append(N.zeros((len(self.Time[sn]),len(self.Time[sn]))))
-            Mean_Y=Interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+            Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Y_ket=(self.y[sn]-Mean_Y).reshape(len(self.y[sn]),1)
             #SVD deconposition for K matrix
             U,s,V=N.linalg.svd(self.K[sn])
@@ -478,9 +478,9 @@ class Gaussian_process:
         if self.SUBSTRACT_MEAN and self.CONTEUR_MEAN==0:
             for sn in range(self.N_sn):
                 if self.as_the_same_time:
-                    True_mean=Interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning[sn])
+                    True_mean=interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning[sn])
                 else:
-                    True_mean=Interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning)
+                    True_mean=interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning)
                 self.Prediction[sn]+=True_mean+self.diff[sn]
                 self.y[sn]+=self.Mean_Y_in_BINNING_Y[sn]
             self.Mean_Y=copy.deepcopy(self.TRUE_mean)
@@ -515,14 +515,14 @@ class Gaussian_process:
             self.pull.append(pull)
             for t in range(len(pull)):
                 self.PULL.append(pull[t])
-        self.Moyenne_pull,self.ecart_type_pull=NORMAL_LAW.fit(self.PULL)
+        Moyenne_pull,ecart_type_pull=NORMAL_LAW.fit(self.PULL)
         if PLOT:
             P.hist(self.PULL,bins=60,normed=True)
             xmin, xmax = P.xlim() 
             X = N.linspace(xmin, xmax, 100) 
-            PDF = NORMAL_LAW.pdf(X, Moyenne, ecart_type) 
+            PDF = NORMAL_LAW.pdf(X, Moyenne_pull, ecart_type_pull) 
             P.plot(X, PDF, 'r', linewidth=3) 
-            title = "Fit results: $\mu$ = %.2f, $\sigma$ = %.2f" % (Moyenne, ecart_type) 
+            title = r"Fit results: $\mu$ = %.2f, $\sigma$ = %.2f" % (Moyenne_pull, ecart_type_pull) 
             P.title(title)
             P.show()
 
@@ -563,8 +563,8 @@ class Gaussian_process:
 
         P.subplot(gs[1])
         
-        Mean_Y=Interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
-        Mean_Y_new_binning=Interpolate_mean(self.Time_mean,self.Mean_Y,Time_predict)
+        Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+        Mean_Y_new_binning=interpolate_mean(self.Time_mean,self.Mean_Y,Time_predict)
         CST_bottom=self.diff[sn]#N.mean(self.Prediction[sn]-Mean_Y_new_binning)
 
         P.scatter(self.Time[sn],self.y[sn]-Mean_Y-CST_bottom,c='r')
@@ -611,7 +611,7 @@ class build_pull:
             for t in range(len(self.Time[sn])):
                 FILTRE=N.array([True]*len(self.Time[sn]))
                 FILTRE[t]=False
-                GPP=find_global_hyperparameters([self.y[sn][FILTRE]],[self.y_err[sn][FILTRE]],[self.Time[sn][FILTRE]],self.Time_mean,self.Mean_Y)
+                GPP=Gaussian_process([self.y[sn][FILTRE]],[self.y_err[sn][FILTRE]],[self.Time[sn][FILTRE]],self.Time_mean,self.Mean_Y)
                 GPP.substract_Mean(diff=[diFF[sn]])
                 GPP.hyperparameters.update({'sigma':self.sigma,
                                            'l':self.L})
@@ -640,9 +640,9 @@ class build_pull:
         PDF = NORMAL_LAW.pdf(X, self.Moyenne_pull, self.ecart_type_pull)
         P.plot(X, PDF, 'r', linewidth=3)
         if Lambda is None:
-            title = "Fit results: $\mu$ = %.2f, $\sigma$ = %.2f" % (self.Moyenne_pull, self.ecart_type_pull)
+            title = r"Fit results: $\mu$ = %.2f, $\sigma$ = %.2f" % (self.Moyenne_pull, self.ecart_type_pull)
         else:
-            title = "Fit results ($\lambda = %i \AA$): $\mu$ = %.2f, $\sigma$ = %.2f" %((Lambda,self.Moyenne_pull, self.ecart_type_pull))
+            title = r"Fit results ($\lambda = %i \AA$): $\mu$ = %.2f, $\sigma$ = %.2f" %((Lambda,self.Moyenne_pull, self.ecart_type_pull))
         P.title(title)
         P.ylabel('Number of points (normed)')
         P.xlabel('Pull')
@@ -680,7 +680,7 @@ class compare_spline_GP:
             if sn == SN: 
                 if FILTRE is None :
                     FILTRE=N.array([True]*len(self.Time[sn]))
-                GPP=find_global_hyperparameters([self.y[sn][FILTRE]],[self.y_err[sn][FILTRE]],[self.Time[sn][FILTRE]],LCMC.Time_Mean,LCMC.Mean)
+                GPP=Gaussian_process([self.y[sn][FILTRE]],[self.y_err[sn][FILTRE]],[self.Time[sn][FILTRE]],LCMC.Time_Mean,LCMC.Mean)
                 GPP.substract_Mean(diff=[diFF[sn]])
                 GPP.hyperparameters.update({'sigma':self.sigma,
                                             'l':self.L})
@@ -796,7 +796,7 @@ class generate_light_curves_SUGAR_MC:
         for i in range(self.N_sn):
             T=N.linspace(self.Time[0],self.Time[-1],10+i)
             
-            Supernovae_MC.append(Interpolate_mean(self.TIME[i],self.Supernovae_MC[i],T))
+            Supernovae_MC.append(interpolate_mean(self.TIME[i],self.Supernovae_MC[i],T))
             TIME.append(T)
 
 
@@ -919,7 +919,7 @@ class Build_light_curves_from_SNF_data:
             self.Mean_new_binning=N.zeros(delta_lambda*len(Phase))
             
             for Bin in range(delta_lambda):
-                self.Mean_new_binning[Bin*DELTA:(Bin+1)*DELTA]=Interpolate_mean(self.Time_Mean,data[:,2][Bin*delta_mean:(Bin+1)*delta_mean],Phase)
+                self.Mean_new_binning[Bin*DELTA:(Bin+1)*DELTA]=interpolate_mean(self.Time_Mean,data[:,2][Bin*delta_mean:(Bin+1)*delta_mean],Phase)
 
             reorder = N.arange(delta_lambda*DELTA).reshape(delta_lambda, DELTA).T.reshape(-1)
             self.Mean_new_binning=self.Mean_new_binning[reorder]
@@ -950,9 +950,10 @@ if __name__=="__main__":
 
     
     
-    option = read_option()
+    MC=False
 
-    if not option.MC:
+    
+    if not MC:
 
         option.bin=int(option.bin)
 
@@ -1024,7 +1025,7 @@ if __name__=="__main__":
         LCMC.mixe_time()
         LCMC.add_noise(sigma=0.05)
 
-        GP=find_global_hyperparameters(LCMC.Supernovae_MC,LCMC.Y_err,LCMC.TIME,N.linspace(-12,42,19),LCMC.M0_LC)
+        GP=Gaussian_process(LCMC.Supernovae_MC,LCMC.Y_err,LCMC.TIME,N.linspace(-12,42,19),LCMC.M0_LC)
         GP.substract_Mean(diff=None)
         GP.find_hyperparameters(sigma_guess=0.5,l_guess=8.)
         GP.get_prediction(new_binning=N.linspace(-12,42,19))
