@@ -1,10 +1,8 @@
 import numpy as N
-import scipy as S
 import pylab as P
 import matplotlib.gridspec as gridspec
 import cPickle
 import iminuit as minuit
-from scipy import linalg  
 import scipy.interpolate as inter
 import copy
 from scipy.stats import norm as NORMAL_LAW
@@ -951,15 +949,16 @@ if __name__=="__main__":
     
     
     MC=False
-
+    Bin=42
+    directory=''
+    sn_list=['SN2007le']
     
     if not MC:
 
-        option.bin=int(option.bin)
 
-        LCMC=Build_light_curves_from_SNF_data(option.directory_input,option.bin,option.sn_list,Number_bin_wavelength=190)
+        LCMC=Build_light_curves_from_SNF_data(directory,Bin,sn_list,Number_bin_wavelength=190)
         LCMC.build_data()
-        LCMC.build_mean(option.mean)
+        LCMC.build_mean(N.zeros_like(LCMC.Y))
         LCMC.build_difference_mean()
 
         
@@ -1005,7 +1004,7 @@ if __name__=="__main__":
              'sn_name':LCMC.sn_name}
   
 
-        File=open(option.directory_output+'Prediction_Bin_%i.pkl'%(option.bin),'w')
+        File=open(directory+'Prediction_Bin_%i.pkl'%(Bin),'w')
         cPickle.dump(dic,File)
         File.close()
 
@@ -1014,7 +1013,7 @@ if __name__=="__main__":
         sed='/sps/snovae/user/leget/BEDELL/SUGAR_model.asci'
 
         
-        N_SN=int(option.SN)
+        N_SN=20
         BIN=42
 
         SIGG=0.4
@@ -1037,7 +1036,7 @@ if __name__=="__main__":
              }
   
 
-        File=open(option.directory_output+'Prediction_N_SN_%i.pkl'%(option.SN),'w')
+        File=open(directory+'Prediction_N_SN_%i.pkl'%(N_SN),'w')
         cPickle.dump(dic,File)
         File.close()
 
