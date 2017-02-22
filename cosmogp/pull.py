@@ -32,7 +32,7 @@ class build_pull:
             for t in range(len(self.Time[sn])):
                 FILTRE=N.array([True]*len(self.Time[sn]))
                 FILTRE[t]=False
-                GPP=Gaussian_process([self.y[sn][FILTRE]],[self.y_err[sn][FILTRE]],[self.Time[sn][FILTRE]],self.Time_mean,self.Mean_Y)
+                GPP=Gaussian_process([self.y[sn][FILTRE]],[self.Time[sn][FILTRE]],y_err=[self.y_err[sn][FILTRE]],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
                 GPP.substract_Mean(diff=[diFF[sn]])
                 GPP.hyperparameters.update({'sigma':self.sigma,
                                            'l':self.L})

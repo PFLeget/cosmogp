@@ -150,6 +150,7 @@ def Log_Likelihood_GP(y,y_err,Mean_Y,Time,sigma,l,nugget):
 
 
 
+
 class Gaussian_process:
 
     """
@@ -207,18 +208,31 @@ class Gaussian_process:
 
     """
 
-    def __init__(self,y,y_err,Time,Time_mean,Mean_Y):
+    def __init__(self,y,Time,y_err=None,Mean_Y=None,Time_mean=None):
 
         self.y=y
         self.N_sn=len(y)
-        self.y_err=y_err
         self.Time=Time
-        self.Mean_Y=Mean_Y
-        self.Time_mean=Time_mean
         self.SUBSTRACT_MEAN=False
         self.hyperparameters={}
         self.CONTEUR_MEAN=0
         self.diff=N.zeros(self.N_sn)
+
+
+        if Mean_Y is not None:
+            self.Mean_Y=Mean_Y
+        else:
+            self.Mean_Y=N.zeros_like(self.y[0])
+            
+        if y_err is not None:
+            self.y_err=y_err
+        else:
+            self.y_err=N.zeros_like(self.y)
+            
+        if Time_mean is not None:
+            self.Time_mean=Time_mean
+        else:
+            self.Time_mean=self.Time[0]
 
     def substract_Mean(self,diff=None):
 
@@ -525,7 +539,7 @@ class Gaussian_process:
             P.title(title)
             P.show()
 
-    def plot_prediction(self,sn,Error=False,TITLE=None):
+    def plot_prediction(self,sn,Error=False,TITLE=None,y1_label='Y',y2_label='Y-<Y>',x_label='X'):
 
         import pylab as P 
         
@@ -552,14 +566,14 @@ class Gaussian_process:
                 P.fill_between(Time_predict,self.Prediction[sn]-CST_top-N.sqrt(N.diag(self.Linear_covariance[sn])),self.Prediction[sn]-CST_top+N.sqrt(N.diag(self.Linear_covariance[sn])),color='r',alpha=0.7 )
             P.fill_between(Time_predict,self.Prediction[sn]-CST_top-Y_err,self.Prediction[sn]-CST_top+Y_err,color='b',alpha=0.7 )
 
-        P.ylabel('Mag AB + cst')
+        P.ylabel(y1_label)
         if TITLE:
             P.title(TITLE)
 
         P.legend()
         P.xticks([-50,150],['toto','tata'])
         P.ylim(N.min(self.Prediction[sn]-CST_top)-1,N.max(self.Prediction[sn]-CST_top)+1)
-        P.xlim(-15,45)
+        P.xlim(N.min(self.Time[sn]),N.max(self.Time[sn]))
         P.gca().invert_yaxis()
 
         P.subplot(gs[1])
@@ -578,10 +592,34 @@ class Gaussian_process:
 
         P.plot(Time_predict,N.zeros(len(self.Prediction[sn])),'k')
         
-        P.xlim(-15,45)
+        P.xlim(N.min(self.Time[sn]),N.max(self.Time[sn]))
         P.ylim(N.min(self.Prediction[sn]-CST_bottom-Mean_Y_new_binning)-0.5,N.max(self.Prediction[sn]-CST_bottom-Mean_Y_new_binning)+0.5)
-        P.ylabel('Mag AB - $M_0(t)$')
-        P.xlabel('Time (days)')
+        P.ylabel(y2_label)
+        P.xlabel(x_label)
+
+
+
+class gp_1D_1object(Gaussian_process):
+    
+    
+    def __init__(self,y,Time,y_err=None,Mean_Y=None,Time_mean=None):
+
+        assert type(y) is N.ndarray, "y is not array " 
+        assert y.ndim == 1, "y should be a 1D array "
+        
+        if y_err is not None:
+            y_err=[y_err]
+        
+        Gaussian_process.__init__(self,[y],[Time],y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
+
+
+class gp_1D_Nobject(Gaussian_process):
+    
+    def __init__(self,y,Time,y_err=None,Mean_Y=None,Time_mean=None):
+
+        Gaussian_process.__init__(self,y,Time,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
+
+
 
 
 
