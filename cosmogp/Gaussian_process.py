@@ -517,27 +517,6 @@ class Gaussian_process:
                 self.covariance_matrix[sn]+=RBF_kernel_1D(self.new_binning,self.hyperparameters['sigma'],self.hyperparameters['l'],0)
 
             
-    def get_pull(self,PLOT=True):
-        self.get_prediction(new_binning=None)
-        self.pull=[]
-        self.PULL=[]
-        for sn in range(self.N_sn):
-            pull=(self.Prediction[sn]-self.y[sn])/N.sqrt(self.y_err[sn]**2+N.diag(self.covariance_matrix[sn]))
-            self.pull.append(pull)
-            for t in range(len(pull)):
-                self.PULL.append(pull[t])
-        Moyenne_pull,ecart_type_pull=NORMAL_LAW.fit(self.PULL)
-        if PLOT:
-            import pylab as P
-            
-            P.hist(self.PULL,bins=60,normed=True)
-            xmin, xmax = P.xlim() 
-            X = N.linspace(xmin, xmax, 100) 
-            PDF = NORMAL_LAW.pdf(X, Moyenne_pull, ecart_type_pull) 
-            P.plot(X, PDF, 'r', linewidth=3) 
-            title = r"Fit results: $\mu$ = %.2f, $\sigma$ = %.2f" % (Moyenne_pull, ecart_type_pull) 
-            P.title(title)
-            P.show()
 
     def plot_prediction(self,sn,Error=False,TITLE=None,y1_label='Y',y2_label='Y-<Y>',x_label='X'):
 
