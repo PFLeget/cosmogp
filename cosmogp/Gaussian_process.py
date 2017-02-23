@@ -1,6 +1,7 @@
 import numpy as N
 import matplotlib.gridspec as gridspec
-import iminuit as minuit
+#import iminuit as minuit
+from scipy.optimize import fmin 
 import scipy.interpolate as inter
 import copy
 
@@ -37,58 +38,7 @@ def interpolate_mean(old_binning,mean_function,new_binning):
 
 
 
-def RBF_kernel_1D(Time,sigma,l,nugget,floor=0.00,y_err=None):
-
-    """
-    1D RBF kernel
-
-    K(t_i,t_j) = sigma^2 exp(-0.5 ((t_i-t_j)/l)^2) 
-               + (y_err[i]^2 + nugget^2 + floor^2) delta_ij
-
-    
-    Time : 1D numpy array or 1D list. Grid of observation.
-    For SNIa it would be observation phases. 
-
-    sigma : float. Kernel amplitude hyperparameter. 
-    It explain the standard deviation from the mean function.
-
-    l : float. Kernel correlation length hyperparameter. 
-    It explain at wich scale one data point afect the 
-    position of an other.
-
-    nugget : float. Diagonal dispertion that you can add in 
-    order to explain intrinsic variability not discribe by 
-    the RBF kernel.
-
-    floor : float. Diagonal error that you can add to your 
-    RBF Kernel if you know the value of your intrinsic dispersion. 
-
-    y_err : 1D numpy array or 1D list. Error from data 
-    observation. For SNIa, it would be the error on the 
-    observed flux/magnitude.
-
-
-    output : Cov. 2D numpy array, shape = (len(Time),len(Time))
-
-    """
-
-    if y_err is None:
-        y_err = N.zeros_like(Time)
-    
-    Cov = N.zeros((len(Time),len(Time)))
-    
-    for i in range(len(Time)):
-        for j in range(len(Time)):
-            Cov[i,j] = (sigma**2)*N.exp(-0.5*((Time[i]-Time[j])/l)**2)
-            
-            if i==j:
-                Cov[i,j] += y_err[i]**2+floor**2+nugget**2
-
-    return Cov
-
-
-
-def Log_Likelihood_GP(y,y_err,Mean_Y,Time,sigma,l,nugget):
+def Log_Likelihood_GP(y,y_err,Mean_Y,Time,kernel,hyperparameter,nugget):
 
     """
     Log likehood to maximize in order to find hyperparameter
@@ -129,7 +79,7 @@ def Log_Likelihood_GP(y,y_err,Mean_Y,Time,sigma,l,nugget):
     """
 
     NT = len(Time)
-    K = RBF_kernel_1D(Time,sigma,l,nugget,y_err=y_err)
+    K = kernel(Time,hyperparameter,nugget,y_err=y_err)
     y_ket = y.reshape(len(y),1)
     Mean_Y_ket = Mean_Y.reshape(len(Mean_Y),1)
     #SVD deconposition for K matrix
@@ -208,13 +158,20 @@ class Gaussian_process:
 
     """
 
-    def __init__(self,y,Time,y_err=None,Mean_Y=None,Time_mean=None):
+    def __init__(self,y,Time,kernel='RBF1D',y_err=None,Mean_Y=None,Time_mean=None):
 
+        kernel_choice=['RBF1D']
+        assert kernel in kernel_choice, '%s is not in implemented kernel' %(kernel)
+
+        if kernel == 'RBF1D':
+            from cosmogp import RBF_kernel_1D as kernel
+            self.kernel=kernel
+            self.hyperparameters=N.array([(0.5, 2.0)], dtype=[('sigma', float), ('l', float)])
+            
         self.y=y
         self.N_sn=len(y)
         self.Time=Time
         self.SUBSTRACT_MEAN=False
-        self.hyperparameters={}
         self.CONTEUR_MEAN=0
         self.diff=N.zeros(self.N_sn)
 
@@ -258,7 +215,7 @@ class Gaussian_process:
 
 
 
-    def compute_Log_Likelihood(self,sigma,l):
+    def compute_Log_Likelihood(self,hyperparameter):
 
         """
         compute the global likelihood for all your data 
@@ -270,101 +227,49 @@ class Gaussian_process:
         Log_Likelihood=0
         for sn in range(self.N_sn):
             Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
-            Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],sigma,l,Nugget)
-        print 'sigma : ', sigma, ' l: ', l, ' Log_like: ', Log_Likelihood[0]
+            Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],self.kernel,hyperparameter,Nugget)
+        print 'sigma : ', hyperparameter['sigma'], ' l: ', hyperparameter['l'], ' Log_like: ', Log_Likelihood[0]
         self.Log_Likelihood=Log_Likelihood
-            
-
-    def init_hyperparameter_sigma(self):
-
-        """
-        initialize first guess for hyperparameter sigma
-        
-        """
-        
-        self.sigma_init=0.
-        W=0
-        for sn in range(self.N_sn):
-            Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
-            W+=len(self.Time[sn])
-            self.sigma_init+=(1./len(self.Time[sn]))*N.sum((Mean_Y-self.y[sn])**2)
-
-        self.sigma_init/=W
-        self.sigma_init=N.sqrt(self.sigma_init)
-         
-         
-
-    def init_hyperparameter_l(self):
-
-        """
-        initialize first guess for hyperparameter l
-        
-        """
-        
-
-        residuals=N.zeros((self.N_sn,len(self.Mean_Y)))
-         
-        for sn in range(self.N_sn):
-
-            y_interpolate=interpolate_mean(self.Time[sn],self.y[sn],self.Time_mean)
-            residuals[sn]=y_interpolate-self.Mean_Y
-
-        self.init_hyperparameter_sigma()     
-
-        self.Cov_matrix=(1./self.N_sn)*N.dot(residuals.T,residuals)
-        self.L_matrix_guess=N.zeros(N.shape(self.Cov_matrix))
-        for i in range(len(self.Time_mean)):
-            for j in range(len(self.Time_mean)):
-                self.L_matrix_guess[i,j]=N.sqrt(0.5*((self.Time_mean[i]-self.Time_mean[j])**2/(abs(2.*N.log(self.sigma_init)-self.Cov_matrix[i,j]))))
-
-        self.Filtre=(self.L_matrix_guess!=0.)
-
-        self.l_init=N.mean(self.L_matrix_guess[self.Filtre])
 
 
 
-    def find_hyperparameters(self,sigma_guess=None,l_guess=None):
+    def find_hyperparameters(self):
 
         """
         Search hyperparameter using a maximum likelihood
 
         maximize with iminuit for the moment 
 
-        sigma_guess : Default = None and will used a specific function 
-        to find it. Could be initialize with a float if you have a good 
-        expectation.  
-
-        l_guess : Default = None and will used a specific function 
-        to find it. Could be initialize with a float if you have a good 
-        expectation.  
-
         """
 
-        if sigma_guess is None :
-             self.init_hyperparameter_sigma()
-             sigma_guess=self.sigma_init
+        def _compute_Log_Likelihood(Hyper):
 
-        if l_guess is None :
-             self.init_hyperparameter_l()
-             l_guess=self.l_init
-
-        def _compute_Log_Likelihood(sigma,l):
-
-
-            self.compute_Log_Likelihood(sigma,l)
-            #print 'sigma :', sigma, 'l :', l ,' Log L:', -self.Log_Likelihood[0] 
+            hyper=()
+            for i in range(len(Hyper)):
+                hyper += (Hyper[i],)
+            hyper=N.array([hyper],dtype=self.hyperparameters.dtype)
+         
+            self.compute_Log_Likelihood(hyper)
             
             return -self.Log_Likelihood[0]     
 
-        Find_hyper=minuit.Minuit(_compute_Log_Likelihood, sigma=sigma_guess,l=l_guess)
+        initial_guess=[]
+        for i in range(len(self.hyperparameters[0])):
+            initial_guess.append(self.hyperparameters[0][i])
         
-        Find_hyper.migrad()
+        hyperparameters=fmin(_compute_Log_Likelihood,initial_guess)
+        
+        #Find_hyper=minuit.Minuit(_compute_Log_Likelihood, sigma=sigma_guess,l=l_guess)
+        
+        #Find_hyper.migrad()
         #Find_hyper.simplex()
         
-        self.hyperparameters=Find_hyper.values
-        self.hyperparameters_Covariance=Find_hyper.covariance
-        self.hyperparameters['sigma']=N.sqrt(self.hyperparameters['sigma']**2)
-        self.hyperparameters['l']=N.sqrt(self.hyperparameters['l']**2)
+        #self.hyperparameters=Find_hyper.values
+        #self.hyperparameters_Covariance=Find_hyper.covariance
+
+        for i,key in enumerate(self.hyperparameters.dtype.names):
+            self.hyperparameters[key]=N.sqrt(hyperparameters[i]**2)
+
 
 
 
@@ -405,7 +310,7 @@ class Gaussian_process:
 
         self.K=[]
         for sn in range(self.N_sn):
-            self.K.append(RBF_kernel_1D(self.Time[sn],self.hyperparameters['sigma'],self.hyperparameters['l'],0.,y_err=self.y_err[sn]))
+            self.K.append(self.kernel(self.Time[sn],self.hyperparameters,0.,y_err=self.y_err[sn]))
         
     def compute_HT_matrix(self,NEW_binning):
         
@@ -498,23 +403,18 @@ class Gaussian_process:
             self.CONTEUR_MEAN+=1
 
 
-    def get_covariance_matrix(self,LINEAR_TRANSFORM=False):
+    def get_covariance_matrix(self):
         
         self.covariance_matrix=[]
-        self.Linear_covariance=[]
 
         for sn in range(self.N_sn):
-
-            if LINEAR_TRANSFORM:
-                A=self.HT[sn].dot(self.inv_K[sn])
-                self.Linear_covariance.append(A.dot(N.dot(N.diag(self.y_err[sn]),A.T)))
-                
-            #else:
+            
             self.covariance_matrix.append(-N.dot(self.HT[sn],N.dot(self.inv_K[sn],self.HT[sn].T)))
+            
             if self.as_the_same_time:
-                self.covariance_matrix[sn]+=RBF_kernel_1D(self.new_binning[sn],self.hyperparameters['sigma'],self.hyperparameters['l'],0)
+                self.covariance_matrix[sn]+=self.kernel(self.new_binning[sn],self.hyperparameters,0)
             else:
-                self.covariance_matrix[sn]+=RBF_kernel_1D(self.new_binning,self.hyperparameters['sigma'],self.hyperparameters['l'],0)
+                self.covariance_matrix[sn]+=self.kernel(self.new_binning,self.hyperparameters,0)
 
             
 
@@ -541,8 +441,6 @@ class Gaussian_process:
 
         if Error:
             P.errorbar(self.Time[sn],self.y[sn]-CST_top, linestyle='', yerr=self.y_err[sn],ecolor='red',alpha=0.9,marker='.',zorder=0)
-            if len(self.Linear_covariance)!=0:
-                P.fill_between(Time_predict,self.Prediction[sn]-CST_top-N.sqrt(N.diag(self.Linear_covariance[sn])),self.Prediction[sn]-CST_top+N.sqrt(N.diag(self.Linear_covariance[sn])),color='r',alpha=0.7 )
             P.fill_between(Time_predict,self.Prediction[sn]-CST_top-Y_err,self.Prediction[sn]-CST_top+Y_err,color='b',alpha=0.7 )
 
         P.ylabel(y1_label)
@@ -565,8 +463,6 @@ class Gaussian_process:
         P.plot(Time_predict,self.Prediction[sn]-Mean_Y_new_binning-CST_bottom,'b')
         if Error:
             P.errorbar(self.Time[sn],self.y[sn]-Mean_Y-CST_bottom, linestyle='', yerr=self.y_err[sn],ecolor='red',alpha=0.9,marker='.',zorder=0)
-            if len(self.Linear_covariance)!=0:
-                P.fill_between(Time_predict,self.Prediction[sn]-CST_bottom-Mean_Y_new_binning-N.sqrt(N.diag(self.Linear_covariance[sn])),self.Prediction[sn]-Mean_Y_new_binning+N.sqrt(N.diag(self.Linear_covariance[sn]))-CST_bottom,color='r',alpha=0.7 )
             P.fill_between(Time_predict,self.Prediction[sn]-Mean_Y_new_binning-Y_err-CST_bottom,self.Prediction[sn]-Mean_Y_new_binning+Y_err-CST_bottom,color='b',alpha=0.7 )
 
         P.plot(Time_predict,N.zeros(len(self.Prediction[sn])),'k')

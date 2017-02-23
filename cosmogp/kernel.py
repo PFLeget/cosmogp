@@ -7,7 +7,7 @@
 
 import numpy as N
 
-def RBF_kernel_1D(x,sigma,l,nugget,floor=0.00,y_err=None):
+def RBF_kernel_1D(x,hyperparameter,nugget,floor=0.00,y_err=None):
 
     """
     1D RBF kernel
@@ -18,6 +18,11 @@ def RBF_kernel_1D(x,sigma,l,nugget,floor=0.00,y_err=None):
     
     x : 1D numpy array or 1D list. Grid of observation.
     For SNIa it would be observation phases. 
+
+    hyperparameter : dic. dictionnary that have as key sigma 
+    and l wich are the two parameters of th RBF kernel.
+    hyperparameter.keys() should return {'sigma':float,
+    'l': float}
 
     sigma : float. Kernel amplitude hyperparameter. 
     It explain the standard deviation from the mean function.
@@ -39,9 +44,8 @@ def RBF_kernel_1D(x,sigma,l,nugget,floor=0.00,y_err=None):
 
 
     output : Cov. 2D numpy array, shape = (len(x),len(x))
-
     """
-
+    
     if y_err is None:
         y_err = N.zeros_like(x)
     
@@ -49,10 +53,17 @@ def RBF_kernel_1D(x,sigma,l,nugget,floor=0.00,y_err=None):
     
     for i in range(len(x)):
         for j in range(len(x)):
-            Cov[i,j] = (sigma**2)*N.exp(-0.5*((x[i]-x[j])/l)**2)
+            Cov[i,j] = (hyperparameter['sigma']**2)*N.exp(-0.5*((x[i]-x[j])/hyperparameter['l'])**2)
             
             if i==j:
                 Cov[i,j] += y_err[i]**2+floor**2+nugget**2
 
     return Cov
 
+
+
+
+
+        
+
+    
