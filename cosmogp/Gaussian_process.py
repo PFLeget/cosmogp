@@ -166,7 +166,7 @@ class Gaussian_process:
         if kernel == 'RBF1D':
             from cosmogp import RBF_kernel_1D as kernel
             self.kernel=kernel
-            self.hyperparameters=N.array([(0.5, 2.0)], dtype=[('sigma', float), ('l', float)])
+            self.hyperparameters=N.array([0.5, 2.0])#, dtype=[('sigma', float), ('l', float)])
             
         self.y=y
         self.N_sn=len(y)
@@ -228,7 +228,7 @@ class Gaussian_process:
         for sn in range(self.N_sn):
             Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],self.kernel,hyperparameter,Nugget)
-        print 'sigma : ', hyperparameter['sigma'], ' l: ', hyperparameter['l'], ' Log_like: ', Log_Likelihood[0]
+        print 'sigma : ', hyperparameter[0], ' l: ', hyperparameter[1], ' Log_like: ', Log_Likelihood[0]
         self.Log_Likelihood=Log_Likelihood
 
 
@@ -244,18 +244,18 @@ class Gaussian_process:
 
         def _compute_Log_Likelihood(Hyper):
 
-            hyper=()
-            for i in range(len(Hyper)):
-                hyper += (Hyper[i],)
-            hyper=N.array([hyper],dtype=self.hyperparameters.dtype)
+            #hyper=()
+            #for i in range(len(Hyper)):
+            #    hyper += (Hyper[i],)
+            #hyper=N.array([hyper],dtype=self.hyperparameters.dtype)
          
-            self.compute_Log_Likelihood(hyper)
+            self.compute_Log_Likelihood(Hyper)
             
             return -self.Log_Likelihood[0]     
 
         initial_guess=[]
-        for i in range(len(self.hyperparameters[0])):
-            initial_guess.append(self.hyperparameters[0][i])
+        for i in range(len(self.hyperparameters)):
+            initial_guess.append(self.hyperparameters[i])
         
         hyperparameters=fmin(_compute_Log_Likelihood,initial_guess)
         
@@ -267,8 +267,8 @@ class Gaussian_process:
         #self.hyperparameters=Find_hyper.values
         #self.hyperparameters_Covariance=Find_hyper.covariance
 
-        for i,key in enumerate(self.hyperparameters.dtype.names):
-            self.hyperparameters[key]=N.sqrt(hyperparameters[i]**2)
+        for i in range(len(self.hyperparameters)):
+            self.hyperparameters[i]=N.sqrt(hyperparameters[i]**2)
 
 
 
@@ -283,8 +283,8 @@ class Gaussian_process:
 
         self.find_hyperparameters()
 
-        sig=self.hyperparameters['sigma']
-        L_corr=self.hyperparameters['l']
+        sig=self.hyperparameters[0]
+        L_corr=self.hyperparameters[1]
         
 
         SIGMAA=N.linspace(sig-window_sig,sig+window_l,100)
@@ -325,7 +325,7 @@ class Gaussian_process:
             self.HT.append(N.zeros((len(New_binning),len(self.Time[sn]))))
             for i in range(len(New_binning)):
                 for j in range(len(self.Time[sn])):
-                    self.HT[sn][i,j]=(self.hyperparameters['sigma']**2)*N.exp(-0.5*((New_binning[i]-self.Time[sn][j])/self.hyperparameters['l'])**2)
+                    self.HT[sn][i,j]=(self.hyperparameters[0]**2)*N.exp(-0.5*((New_binning[i]-self.Time[sn][j])/self.hyperparameters[1])**2)
             
 
     def get_prediction(self,new_binning=None,COV=True):
@@ -494,102 +494,6 @@ class gp_1D_Nobject(Gaussian_process):
 
         Gaussian_process.__init__(self,y,Time,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
 
-
-
-
-
-
-class compare_spline_GP:
-
-    def __init__(self,y,y_err,Time,Time_mean,Mean_Y,sigma,L):
-
-        self.y=y
-        self.N_sn=len(y)
-        self.y_err=y_err
-        self.Time=Time
-        self.Mean_Y=Mean_Y
-        self.Time_mean=Time_mean
-        self.sigma=sigma
-        self.L=L
-
-    def compute_interpolation_prediction(self,SN,diFF=None,FILTRE=None,Time=N.linspace(-12,42,19)):
-
-        if diFF is None:
-            diFF=N.zeros(self.N_sn)
-
-        self.pull=[]
-        self.PULL=[]
-        self.new_binning=Time
-        self.sn=SN
-
-        self.FILTRE=FILTRE
-
-        for sn in range(self.N_sn):
-            
-            if sn == SN: 
-                if FILTRE is None :
-                    FILTRE=N.array([True]*len(self.Time[sn]))
-                GPP=Gaussian_process([self.y[sn][FILTRE]],[self.y_err[sn][FILTRE]],[self.Time[sn][FILTRE]],self.Time_mean,self.Mean_Y)
-                GPP.substract_Mean(diff=[diFF[sn]])
-                GPP.hyperparameters.update({'sigma':self.sigma,
-                                            'l':self.L})
-
-                GPP.get_prediction(new_binning=Time)
-                self.Pred=GPP.Prediction[0]
-                self.Pred_var=N.diag(GPP.covariance_matrix[0])
-                func = inter.UnivariateSpline(self.Time[sn][FILTRE], self.y[sn][FILTRE],w=1./self.y_err[sn][FILTRE]**2,k=3)
-                self.cubic_spline=func(Time)
-
-
-    def plot_prediction(self,TITLE=None,ERROR=False,SPLINE=True):
-        
-
-        Time_predict=self.new_binning
-
-        import pylab as P 
-        P.figure(figsize=(12,8))
-
-        CST_top=N.mean(self.Pred)
-
-        Y_err=N.sqrt(self.Pred_var)
-
-        if N.sum(self.FILTRE)==len(self.Time[self.sn]):
-            P.scatter(self.Time[self.sn][self.FILTRE],self.y[self.sn][self.FILTRE]-CST_top,c='r',s=75,label='Data')
-            P.errorbar(self.Time[self.sn][self.FILTRE],self.y[self.sn][self.FILTRE]-CST_top, linestyle='', yerr=self.y_err[self.sn][self.FILTRE],ecolor='red',alpha=0.9,marker='.',zorder=0)
-        else:
-            P.scatter(self.Time[self.sn][self.FILTRE],self.y[self.sn][self.FILTRE]-CST_top,c='r',s=75,label='Data')
-            P.scatter(self.Time[self.sn][~self.FILTRE],self.y[self.sn][~self.FILTRE]-CST_top,s=120,facecolors='none',marker='^',edgecolors='r',label='Data not used')
-            P.errorbar(self.Time[self.sn][self.FILTRE],self.y[self.sn][self.FILTRE]-CST_top, linestyle='', yerr=self.y_err[self.sn][self.FILTRE],ecolor='red',alpha=0.9,marker='.',zorder=0)
-            P.errorbar(self.Time[self.sn][~self.FILTRE],self.y[self.sn][~self.FILTRE]-CST_top, linestyle='', yerr=self.y_err[self.sn][~self.FILTRE],ecolor='red',alpha=0.9,marker='.',zorder=0)
-        if SPLINE:
-            P.plot(Time_predict,self.cubic_spline-CST_top,'k',label='Cubic spline interpolation',linewidth=2) 
-        P.plot(Time_predict,self.Pred-CST_top,'b',label='Gaussian process prediction',linewidth=2)
-
-        if ERROR:
-            P.fill_between(Time_predict,self.Pred-CST_top-Y_err,self.Pred-CST_top+Y_err,color='b',alpha=0.4 )
-
-        P.ylabel('Mag AB + cst')
-        if TITLE:
-            P.title(TITLE)
-        P.ylim(-2.1,2.1)
-        P.gca().invert_yaxis()
-        P.legend()
-        #P.xticks([-50,150],['toto','tata'])
-        P.xlim(-15,45)
-        P.xlabel('Time (days)')       
-
-
-    def control_plot(self):
-
-        import pylab as P
-        
-        P.figure()
-        for i in range(len(self.sn_name)):
-            P.scatter(self.TIME[i],self.Y[i],c='b')
-            P.errorbar(self.TIME[i],self.Y[i], linestyle='', yerr=self.Y_err[i],ecolor='red',alpha=0.9,marker='.',zorder=0)
-            P.plot(self.Time_Mean,self.Mean)
-        P.gca().invert_yaxis()
-        P.show()
 
 
 if __name__=="__main__":

@@ -35,8 +35,8 @@ class build_pull:
                 GPP=Gaussian_process([self.y[sn][FILTRE]],[self.Time[sn][FILTRE]],y_err=[self.y_err[sn][FILTRE]],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
                 GPP.substract_Mean(diff=[diFF[sn]])
                 
-                GPP.hyperparameters['sigma']=self.sigma
-                GPP.hyperparameters['l']=self.L
+                GPP.hyperparameters[0]=self.sigma
+                GPP.hyperparameters[1]=self.L
 
                 GPP.get_prediction(new_binning=self.Time[sn])
                 Pred[t]=GPP.Prediction[0][t]
