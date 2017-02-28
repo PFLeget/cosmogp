@@ -53,7 +53,7 @@ def RBF_kernel_1D(x,hyperparameter,nugget,floor=0.00,y_err=None):
     
     for i in range(len(x)):
         for j in range(len(x)):
-            Cov[i,j] = (hyperparameter['sigma']**2)*N.exp(-0.5*((x[i]-x[j])/hyperparameter['l'])**2)
+            Cov[i,j] = (hyperparameter[0]**2)*N.exp(-0.5*((x[i]-x[j])/hyperparameter[1])**2)
             
             if i==j:
                 Cov[i,j] += y_err[i]**2+floor**2+nugget**2
