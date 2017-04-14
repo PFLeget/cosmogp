@@ -5,7 +5,7 @@ import numpy as N
 
 def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
     """
-    1D RBF kernel
+    1D RBF kernel.
 
     K(x_i,x_j) = sigma^2 exp(-0.5 ((x_i-x_j)/l)^2) 
                + (y_err[i]^2 + nugget^2 + floor^2) delta_ij
@@ -58,7 +58,7 @@ def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
 
 def RBF_kernel_2D(x,hyperparameter,nugget,floor=0.00,y_err=None):
     """
-    2D RBF kernel
+    2D RBF kernel.
 
     K(x_i,x_j) = sigma^2 exp(-0.5 (x_i-x_j)^t L (x_i-x_j)) 
                + (y_err[i]^2 + nugget^2 + floor^2) delta_ij
