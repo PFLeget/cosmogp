@@ -1,5 +1,5 @@
 import numpy as N
-from cosmogp import Gaussian_process
+import cosmogp
 from scipy.stats import norm as normal
 
 
@@ -16,6 +16,10 @@ class build_pull:
         self.Time_mean=Time_mean
         self.sigma=sigma
         self.L=L
+        if len(self.y)==1:
+            self.NOBJ=False
+        else:
+            self.NOBJ=True
 
     def compute_pull(self,diFF=None):
 
@@ -24,7 +28,8 @@ class build_pull:
 
         self.pull=[]
         self.PULL=[]
-
+        self.RES=[]
+        
         for sn in range(self.N_sn):
             print '%i/%i'%((sn+1,self.N_sn))
             Pred=N.zeros(len(self.Time[sn]))
@@ -32,7 +37,12 @@ class build_pull:
             for t in range(len(self.Time[sn])):
                 FILTRE=N.array([True]*len(self.Time[sn]))
                 FILTRE[t]=False
-                GPP=Gaussian_process([self.y[sn][FILTRE]],[self.Time[sn][FILTRE]],y_err=[self.y_err[sn][FILTRE]],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
+                
+                if self.NOBJ:
+                    GPP=cosmogp.gp_1D_Nobject([self.y[sn][FILTRE]],[self.Time[sn][FILTRE]],y_err=[self.y_err[sn][FILTRE]],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
+                else:
+                    GPP=cosmogp.gp_1D_1object(self.y[0][FILTRE],self.Time[0][FILTRE],y_err=self.y_err[0][FILTRE],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
+
                 GPP.substract_Mean(diff=[diFF[sn]])
                 
                 GPP.hyperparameters[0]=self.sigma
@@ -43,10 +53,11 @@ class build_pull:
                 Pred_var[t]=GPP.covariance_matrix[0][t,t]
 
             pull=(Pred-self.y[sn])/N.sqrt(self.y_err[sn]**2+Pred_var)
+            res=Pred-self.y[sn]
             self.pull.append(pull)
             for t in range(len(self.Time[sn])):
                 self.PULL.append(pull[t])
-
+                self.RES.append(res[t])
 
         self.Moyenne_pull,self.ecart_type_pull=normal.fit(self.PULL)
 
