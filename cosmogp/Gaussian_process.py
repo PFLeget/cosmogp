@@ -164,7 +164,7 @@ class Gaussian_process:
         assert kernel in kernel_choice, '%s is not in implemented kernel' %(kernel)
 
         if kernel == 'RBF1D':
-            from cosmogp import RBF_kernel_1D as kernel
+            from cosmogp import rbf_kernel_1d as kernel
             self.kernel=kernel
             self.hyperparameters=N.array([0.5, 2.0])#, dtype=[('sigma', float), ('l', float)])
             

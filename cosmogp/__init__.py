@@ -17,6 +17,6 @@ from .Gaussian_process import gp_1D_1object
 from .Gaussian_process import gp_1D_Nobject
 from .Gaussian_process import interpolate_mean
 
-from .kernel import RBF_kernel_1D
+from .kernel import rbf_kernel_1d
 
 from .pull import build_pull

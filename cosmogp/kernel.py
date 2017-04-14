@@ -1,14 +1,8 @@
-#############################################
-#
-# implementation of different kind of kernel 
-#
-#############################################
-
+""" implementation of different kind of kernel """
 
 import numpy as N
 
-def RBF_kernel_1D(x,hyperparameter,nugget,floor=0.00,y_err=None):
-
+def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
     """
     1D RBF kernel
 
@@ -46,7 +40,6 @@ def RBF_kernel_1D(x,hyperparameter,nugget,floor=0.00,y_err=None):
 
     output : Cov. 2D numpy array, shape = (len(x),len(x))
     """
-    
     if y_err is None:
         y_err = N.zeros_like(x)
     
@@ -62,9 +55,7 @@ def RBF_kernel_1D(x,hyperparameter,nugget,floor=0.00,y_err=None):
     return Cov
 
 
-
 def RBF_kernel_2D(x,hyperparameter,nugget,floor=0.00,y_err=None):
-
     """
     2D RBF kernel
 
@@ -102,7 +93,6 @@ def RBF_kernel_2D(x,hyperparameter,nugget,floor=0.00,y_err=None):
 
     output : Cov. 2D numpy array, shape = (len(x),len(x))
     """
-    
     if y_err is None:
         y_err = N.zeros(len(x))
     
