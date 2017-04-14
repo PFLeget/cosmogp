@@ -1,6 +1,7 @@
-"""implementation of different kind of kernel"""
+"""implementation of different kind of kernel."""
 
 import numpy as N
+
 
 def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
     """
