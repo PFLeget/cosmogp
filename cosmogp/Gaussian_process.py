@@ -1,45 +1,12 @@
+"""gaussian process interpolator."""
+
 import numpy as N
 import matplotlib.gridspec as gridspec
-#import iminuit as minuit
 from scipy.optimize import fmin 
-import scipy.interpolate as inter
 import copy
 
 
-
-def interpolate_mean(old_binning,mean_function,new_binning):
-    
-    """
-    Function to interpolate 1D mean function on the new grid 
-    Interpolation is done using cubic spline from scipy 
-
-    old_binning : 1D numpy array or 1D list. Represent the 
-    binning of the mean function on the original grid. Should not 
-    be sparce. For SNIa it would be the phases of the Mean function 
-
-    mean_function : 1D numpy array or 1D list. The mean function 
-    used inside Gaussian Process, observed at the Old binning. Would 
-    be the average Light curve for SNIa. 
-
-    new_binning : 1D numpy array or 1D list. The new grid where you 
-    want to project your mean function. For example, it will be the 
-    observed SNIa phases.
-
-    output : mean_interpolate,  Mean function on the new grid (New_binning)
-
-
-    """
-
-    cubic_spline = inter.InterpolatedUnivariateSpline(old_binning,mean_function)
-      
-    mean_interpolate = cubic_spline(new_binning)
-
-    return mean_interpolate 
-
-
-
 def Log_Likelihood_GP(y,y_err,Mean_Y,Time,kernel,hyperparameter,nugget):
-
     """
     Log likehood to maximize in order to find hyperparameter
     with 1D RBF kernel. 
@@ -99,13 +66,9 @@ def Log_Likelihood_GP(y,y_err,Mean_Y,Time,kernel,hyperparameter,nugget):
     return Log_Likelihood
 
 
-
-
 class Gaussian_process:
-
-    """
-    
-    Gaussian process interpolator 
+    """    
+    Gaussian process interpolator. 
 
     For a given data or a set of data (with associated error(s))
     and assuming a given average function of your data, this 
@@ -160,17 +123,26 @@ class Gaussian_process:
 
     def __init__(self,y,Time,kernel='RBF1D',y_err=None,Mean_Y=None,Time_mean=None):
 
-        kernel_choice=['RBF1D']
+        kernel_choice=['RBF1D','RBF2D']
         assert kernel in kernel_choice, '%s is not in implemented kernel' %(kernel)
 
         if kernel == 'RBF1D':
             from cosmogp import rbf_kernel_1d as kernel
+            from cosmogp import interpolate_mean_1d as interpolate_mean
             self.kernel=kernel
-            self.hyperparameters=N.array([0.5, 2.0])#, dtype=[('sigma', float), ('l', float)])
+            self.hyperparameters=N.array([0.5, 2.0])
+
+        if kernel == 'RBF2D':
+            from cosmogp import rbf_kernel_2d as kernel
+            from cosmogp import interpolate_mean_2d as interpolate_mean
+            self.kernel=kernel
+            self.hyperparameters=N.array([0.5, 2.0, 2.0, 0.])
             
         self.y=y
         self.N_sn=len(y)
         self.Time=Time
+
+        
         self.SUBSTRACT_MEAN=False
         self.CONTEUR_MEAN=0
         self.diff=N.zeros(self.N_sn)
@@ -179,7 +151,7 @@ class Gaussian_process:
         if Mean_Y is not None:
             self.Mean_Y=Mean_Y
         else:
-            self.Mean_Y=N.zeros_like(self.y[0])
+            self.Mean_Y=N.zeros_like(self.Time[0])
             
         if y_err is not None:
             self.y_err=y_err
@@ -192,7 +164,6 @@ class Gaussian_process:
             self.Time_mean=self.Time[0]
 
     def substract_Mean(self,diff=None):
-
         """
         in order to avoid systematic difference between 
         average function and the data 
@@ -203,7 +174,7 @@ class Gaussian_process:
         self.Mean_Y_in_BINNING_Y=[]
         self.TRUE_mean=copy.deepcopy(self.Mean_Y)
         for sn in range(self.N_sn):
-            MEAN_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+            MEAN_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             if diff is None:
                 self.Mean_Y_in_BINNING_Y.append(MEAN_Y+N.mean(self.y[sn]-MEAN_Y))
                 self.y[sn]-=(MEAN_Y+N.mean(self.y[sn]-MEAN_Y))
@@ -216,17 +187,15 @@ class Gaussian_process:
 
 
     def compute_Log_Likelihood(self,hyperparameter):
-
         """
         compute the global likelihood for all your data 
         for a set of hyperparameters 
-
         """
 
         Nugget=0
         Log_Likelihood=0
         for sn in range(self.N_sn):
-            Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+            Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],self.kernel,hyperparameter,Nugget)
         print 'sigma : ', hyperparameter[0], ' l: ', hyperparameter[1], ' Log_like: ', Log_Likelihood[0]
         self.Log_Likelihood=Log_Likelihood
@@ -274,7 +243,6 @@ class Gaussian_process:
 
 
     def map_Log_Likelihood(self,window_sig=10.,window_l=10.):
-
         """
         plot the log likelihood nearby the solution in order to see 
         if you are in a global maximum or a local maximum.
@@ -329,10 +297,8 @@ class Gaussian_process:
             
 
     def get_prediction(self,new_binning=None,COV=True):
-
         """
-
-        Compute your interpolation
+        Compute your interpolation.
 
         new_binning : numpy array Default = None. It will 
         provide you the interpolation on the same grid as 
@@ -341,7 +307,7 @@ class Gaussian_process:
         ouside the old grid. Will be the same for all the data 
 
         COV : Boolean, Default = True. Return covariance matrix of 
-        interpoaltion. 
+        interpolation. 
 
         """
         if self.SUBSTRACT_MEAN and self.CONTEUR_MEAN!=0:
@@ -366,14 +332,14 @@ class Gaussian_process:
                 self.Prediction.append(N.zeros(len(self.new_binning[i])))
 
         if not self.as_the_same_time:
-            self.New_mean= interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning)
+            self.New_mean= self.interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning)
 
         self.inv_K=[]
         for sn in range(self.N_sn):
             if self.as_the_same_time:
-                self.New_mean= interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning[sn])
+                self.New_mean= self.interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning[sn])
             self.inv_K.append(N.zeros((len(self.Time[sn]),len(self.Time[sn]))))
-            Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+            Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Y_ket=(self.y[sn]-Mean_Y).reshape(len(self.y[sn]),1)
             #SVD deconposition for K matrix
             U,s,V=N.linalg.svd(self.K[sn])
@@ -394,9 +360,9 @@ class Gaussian_process:
         if self.SUBSTRACT_MEAN and self.CONTEUR_MEAN==0:
             for sn in range(self.N_sn):
                 if self.as_the_same_time:
-                    True_mean=interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning[sn])
+                    True_mean=self.interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning[sn])
                 else:
-                    True_mean=interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning)
+                    True_mean=self.interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning)
                 self.Prediction[sn]+=True_mean+self.diff[sn]
                 self.y[sn]+=self.Mean_Y_in_BINNING_Y[sn]
             self.Mean_Y=copy.deepcopy(self.TRUE_mean)
@@ -455,8 +421,8 @@ class Gaussian_process:
 
         P.subplot(gs[1])
         
-        Mean_Y=interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
-        Mean_Y_new_binning=interpolate_mean(self.Time_mean,self.Mean_Y,Time_predict)
+        Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
+        Mean_Y_new_binning=self.interpolate_mean(self.Time_mean,self.Mean_Y,Time_predict)
         CST_bottom=self.diff[sn]#N.mean(self.Prediction[sn]-Mean_Y_new_binning)
 
         P.scatter(self.Time[sn],self.y[sn]-Mean_Y-CST_bottom,c='r')
@@ -472,8 +438,7 @@ class Gaussian_process:
         P.ylabel(y2_label)
         P.xlabel(x_label)
 
-
-
+        
 class gp_1D_1object(Gaussian_process):
     
     

@@ -56,7 +56,7 @@ def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
     return Cov
 
 
-def RBF_kernel_2D(x,hyperparameter,nugget,floor=0.00,y_err=None):
+def rbf_kernel_2d(x,hyperparameter,nugget,floor=0.00,y_err=None):
     """
     2D RBF kernel.
 
