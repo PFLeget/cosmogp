@@ -2,6 +2,8 @@
 
 import numpy as N
 
+#TO DO : each times I should implement the H matrix which will be the
+# the covariance matrix and the new binning (to implement in 1D and 2D)
 
 def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
     """

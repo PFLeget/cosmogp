@@ -10,6 +10,10 @@ Welcome to cosmogp's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+.. toctree::
+   :maxdepth: 2
+	      
+   cosmogp_intro
 
 
 Indices and tables
