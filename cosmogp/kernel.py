@@ -58,6 +58,23 @@ def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
     return Cov
 
 
+def compute_rbf_1d_ht_matrix(new_x,old_x,hyperparameter,as_the_same_grid=False):
+    
+    HT=[]
+    
+    for sn in range(old_x): 
+        if self.as_the_same_grid:
+            New_binning=new_x[sn]
+        else:
+            New_binning=new_x
+
+        HT.append(N.zeros((len(New_binning),len(old_x[sn]))))
+        for i in range(len(New_binning)):
+            for j in range(len(old_x)):
+                HT[sn][i,j]=(hyperparameters[0]**2)*N.exp(-0.5*((New_binning[i]-old_binning[sn][j])/hyperparameters[1])**2)
+
+    return HT
+
 def rbf_kernel_2d(x,hyperparameter,nugget,floor=0.00,y_err=None):
     """
     2D RBF kernel.
@@ -114,6 +131,27 @@ def rbf_kernel_2d(x,hyperparameter,nugget,floor=0.00,y_err=None):
 
     return Cov
 
+
+def compute_rbf_2d_ht_matrix(new_x,old_x,hyperparameter,as_the_same_grid=False):
+    
+    HT=[]
+    L=N.array(([hyperparameter[1]**2,hyperparameter[3]],
+               [hyperparameter[3],hyperparameter[2]**2]))
+    
+    for sn in range(old_x): 
+        if self.as_the_same_grid:
+            New_binning=new_x[sn]
+        else:
+            New_binning=new_x
+
+        HT.append(N.zeros((len(New_binning),len(old_x[sn]))))
+        for i in range(len(New_binning)):
+            for j in range(len(old_x)):
+                delta_x = New_binning[i]-old_binning[sn][j]
+                delta_x_t = delta_x.reshape((len(delta_x),1))
+                HT[sn][i,j]=(hyperparameters[0]**2)*N.exp(-0.5*delta_x.dot(N.dot(L,delta_x_t)))
+
+    return HT
 
 
 

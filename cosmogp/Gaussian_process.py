@@ -129,14 +129,22 @@ class Gaussian_process:
         if kernel == 'RBF1D':
             from cosmogp import rbf_kernel_1d as kernel
             from cosmogp import interpolate_mean_1d as interpolate_mean
+            from cosmogp import compute_rbf_1d_ht_matrix
+            
             self.kernel=kernel
+            self.compute_HT_matrix= compute_rbf_1d_ht_matrix
+            self.interpolate_mean = interpolate_mean 
             self.hyperparameters=N.array([0.5, 2.0])
 
         if kernel == 'RBF2D':
             from cosmogp import rbf_kernel_2d as kernel
             from cosmogp import interpolate_mean_2d as interpolate_mean
-            self.kernel=kernel
-            self.hyperparameters=N.array([0.5, 2.0, 2.0, 0.])
+            from cosmogp import compute_rbf_2d_ht_matrix
+            
+            self.kernel = kernel
+            self.compute_HT_matrix = compute_rbf_1d_ht_matrix
+            self.interpolate_mean = interpolate_mean 
+            self.hyperparameters = N.array([0.5, 2.0, 2.0, 0.])
             
         self.y=y
         self.N_sn=len(y)
@@ -203,21 +211,14 @@ class Gaussian_process:
 
 
     def find_hyperparameters(self):
-
         """
-        Search hyperparameter using a maximum likelihood
-
-        maximize with iminuit for the moment 
+        Search hyperparameter using a maximum likelihood.
+        Maximize with optimize.fmin for the moment 
 
         """
 
         def _compute_Log_Likelihood(Hyper):
 
-            #hyper=()
-            #for i in range(len(Hyper)):
-            #    hyper += (Hyper[i],)
-            #hyper=N.array([hyper],dtype=self.hyperparameters.dtype)
-         
             self.compute_Log_Likelihood(Hyper)
             
             return -self.Log_Likelihood[0]     
@@ -228,18 +229,8 @@ class Gaussian_process:
         
         hyperparameters=fmin(_compute_Log_Likelihood,initial_guess)
         
-        #Find_hyper=minuit.Minuit(_compute_Log_Likelihood, sigma=sigma_guess,l=l_guess)
-        
-        #Find_hyper.migrad()
-        #Find_hyper.simplex()
-        
-        #self.hyperparameters=Find_hyper.values
-        #self.hyperparameters_Covariance=Find_hyper.covariance
-
         for i in range(len(self.hyperparameters)):
             self.hyperparameters[i]=N.sqrt(hyperparameters[i]**2)
-
-
 
 
     def map_Log_Likelihood(self,window_sig=10.,window_l=10.):
@@ -280,20 +271,20 @@ class Gaussian_process:
         for sn in range(self.N_sn):
             self.K.append(self.kernel(self.Time[sn],self.hyperparameters,0.,y_err=self.y_err[sn]))
         
-    def compute_HT_matrix(self,NEW_binning):
-        
-        self.HT=[]
-
-        for sn in range(self.N_sn): 
-            if self.as_the_same_time:
-                New_binning=NEW_binning[sn]
-            else:
-                New_binning=NEW_binning
-
-            self.HT.append(N.zeros((len(New_binning),len(self.Time[sn]))))
-            for i in range(len(New_binning)):
-                for j in range(len(self.Time[sn])):
-                    self.HT[sn][i,j]=(self.hyperparameters[0]**2)*N.exp(-0.5*((New_binning[i]-self.Time[sn][j])/self.hyperparameters[1])**2)
+    #def compute_HT_matrix(self,NEW_binning):
+    #    
+    #    self.HT=[]
+    #
+    #    for sn in range(self.N_sn): 
+    #        if self.as_the_same_time:
+    #            New_binning=NEW_binning[sn]
+    #        else:
+    #            New_binning=NEW_binning
+    #
+    #        self.HT.append(N.zeros((len(New_binning),len(self.Time[sn]))))
+    #        for i in range(len(New_binning)):
+    #            for j in range(len(self.Time[sn])):
+    #                self.HT[sn][i,j]=(self.hyperparameters[0]**2)*N.exp(-0.5*((New_binning[i]-self.Time[sn][j])/self.hyperparameters[1])**2)
             
 
     def get_prediction(self,new_binning=None,COV=True):
@@ -321,8 +312,9 @@ class Gaussian_process:
             self.as_the_same_time=False
             self.new_binning=new_binning
         self.compute_covariance_matrix_K()
-        self.compute_HT_matrix(self.new_binning)
-        #self.Prediction=N.zeros((self.N_sn,len(self.new_binning)))
+        #self.compute_HT_matrix(self.new_binning)
+        self.HT=self.compute_HT_matrix(self.new_binning,self.Time,
+                                       self.hyperparameter,as_the_same_grid=self.as_the_same_time)
         self.Prediction=[]
 
         for i in range(self.N_sn):

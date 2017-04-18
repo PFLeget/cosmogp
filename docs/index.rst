@@ -8,17 +8,20 @@ Welcome to cosmogp's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+	      
+   cosmogp_intro
 
 .. toctree::
    :maxdepth: 2
 	      
-   cosmogp_intro
+   cosmogp_1d_interp
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. toctree::
+   :maxdepth: 2
+	      
+   cosmogp_2d_interp
+   
+.. toctree::
+   :maxdepth: 2
+	      
+   cosmological_example
