@@ -206,8 +206,8 @@ class Gaussian_process:
             Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],self.kernel,hyperparameter,Nugget)
         
-            #print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' ly: ', hyperparameter[2], ' lxy: ', hyperparameter[3], ' Log_like: ', Log_Likelihood[0]
-            print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' Log_like: ', Log_Likelihood[0]
+        print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' ly: ', hyperparameter[2], ' lxy: ', hyperparameter[3], ' Log_like: ', Log_Likelihood[0]
+        #print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' Log_like: ', Log_Likelihood[0]
         self.Log_Likelihood=Log_Likelihood
 
 
