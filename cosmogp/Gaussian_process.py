@@ -316,7 +316,7 @@ class Gaussian_process:
         self.compute_covariance_matrix_K()
         #self.compute_HT_matrix(self.new_binning)
         self.HT=self.compute_HT_matrix(self.new_binning,self.Time,
-                                       self.hyperparameter,as_the_same_grid=self.as_the_same_time)
+                                       self.hyperparameters,as_the_same_grid=self.as_the_same_time)
         self.Prediction=[]
 
         for i in range(self.N_sn):
