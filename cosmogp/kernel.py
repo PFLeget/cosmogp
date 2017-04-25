@@ -120,11 +120,13 @@ def rbf_kernel_2d(x,hyperparameter,nugget,floor=0.00,y_err=None):
     L=N.array(([hyperparameter[1]**2,hyperparameter[3]],
                [hyperparameter[3],hyperparameter[2]**2]))
     
+    Inv_L=N.linalg.inv(L)
+    
     for i in range(len(x)):
         for j in range(len(x)):
             delta_x = x[i]-x[j]
             delta_x_t = delta_x.reshape((len(delta_x),1))
-            Cov[i,j] = (hyperparameter[0]**2)*N.exp(-0.5*delta_x.dot(N.dot(L,delta_x_t)))
+            Cov[i,j] = (hyperparameter[0]**2)*N.exp(-0.5*delta_x.dot(N.dot(Inv_L,delta_x_t)))
             
             if i==j:
                 Cov[i,j] += y_err[i]**2+floor**2+nugget**2
@@ -137,6 +139,8 @@ def compute_rbf_2d_ht_matrix(new_x,old_x,hyperparameter,as_the_same_grid=False):
     HT=[]
     L=N.array(([hyperparameter[1]**2,hyperparameter[3]],
                [hyperparameter[3],hyperparameter[2]**2]))
+
+    Inv_L=N.linalg.inv(L)
     
     for sn in range(old_x): 
         if self.as_the_same_grid:
@@ -149,7 +153,7 @@ def compute_rbf_2d_ht_matrix(new_x,old_x,hyperparameter,as_the_same_grid=False):
             for j in range(len(old_x)):
                 delta_x = New_binning[i]-old_binning[sn][j]
                 delta_x_t = delta_x.reshape((len(delta_x),1))
-                HT[sn][i,j]=(hyperparameters[0]**2)*N.exp(-0.5*delta_x.dot(N.dot(L,delta_x_t)))
+                HT[sn][i,j]=(hyperparameters[0]**2)*N.exp(-0.5*delta_x.dot(N.dot(Inv_L,delta_x_t)))
 
     return HT
 

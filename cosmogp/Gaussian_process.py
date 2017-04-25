@@ -129,20 +129,20 @@ class Gaussian_process:
         if kernel == 'RBF1D':
             from cosmogp import rbf_kernel_1d as kernel
             from cosmogp import interpolate_mean_1d as interpolate_mean
-            from cosmogp import compute_rbf_1d_ht_matrix
+            from cosmogp import compute_rbf_1d_ht_matrix as compute_ht
             
             self.kernel=kernel
-            self.compute_HT_matrix= compute_rbf_1d_ht_matrix
+            self.compute_HT_matrix= compute_ht
             self.interpolate_mean = interpolate_mean 
             self.hyperparameters=N.array([0.5, 2.0])
 
         if kernel == 'RBF2D':
             from cosmogp import rbf_kernel_2d as kernel
             from cosmogp import interpolate_mean_2d as interpolate_mean
-            from cosmogp import compute_rbf_2d_ht_matrix
+            from cosmogp import compute_rbf_2d_ht_matrix as compute_ht
             
             self.kernel = kernel
-            self.compute_HT_matrix = compute_rbf_1d_ht_matrix
+            self.compute_HT_matrix = compute_ht
             self.interpolate_mean = interpolate_mean 
             self.hyperparameters = N.array([0.5, 2.0, 2.0, 0.])
             
@@ -159,7 +159,7 @@ class Gaussian_process:
         if Mean_Y is not None:
             self.Mean_Y=Mean_Y
         else:
-            self.Mean_Y=N.zeros_like(self.Time[0])
+            self.Mean_Y=N.zeros_like(self.y[0])
             
         if y_err is not None:
             self.y_err=y_err
@@ -205,7 +205,9 @@ class Gaussian_process:
         for sn in range(self.N_sn):
             Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],self.kernel,hyperparameter,Nugget)
-        print 'sigma : ', hyperparameter[0], ' l: ', hyperparameter[1], ' Log_like: ', Log_Likelihood[0]
+        
+            #print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' ly: ', hyperparameter[2], ' lxy: ', hyperparameter[3], ' Log_like: ', Log_Likelihood[0]
+            print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' Log_like: ', Log_Likelihood[0]
         self.Log_Likelihood=Log_Likelihood
 
 
@@ -434,22 +436,32 @@ class Gaussian_process:
 class gp_1D_1object(Gaussian_process):
     
     
-    def __init__(self,y,Time,y_err=None,Mean_Y=None,Time_mean=None):
+    def __init__(self,y,Time,kernel='RBF1D',y_err=None,Mean_Y=None,Time_mean=None):
 
         assert type(y) is N.ndarray, "y is not array " 
         assert y.ndim == 1, "y should be a 1D array "
         
+        
         if y_err is not None:
             y_err=[y_err]
         
-        Gaussian_process.__init__(self,[y],[Time],y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
+        Gaussian_process.__init__(self,[y],[Time],kernel=kernel,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
 
 
 class gp_1D_Nobject(Gaussian_process):
-    
-    def __init__(self,y,Time,y_err=None,Mean_Y=None,Time_mean=None):
 
-        Gaussian_process.__init__(self,y,Time,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
+    
+    def __init__(self,y,Time,kernel='RBF1D',y_err=None,Mean_Y=None,Time_mean=None):
+
+        Gaussian_process.__init__(self,y,Time,kernel=kernel,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
+
+
+class gp_2D_Nobject(Gaussian_process):
+
+    
+    def __init__(self,y,Time,y_err=None,kernel='RBF2D',Mean_Y=None,Time_mean=None):
+
+        Gaussian_process.__init__(self,y,Time,kernel=kernel,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
 
 
 

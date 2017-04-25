@@ -2,7 +2,7 @@
 
 
 import scipy.interpolate as inter
-
+import numpy as N 
 
 def interpolate_mean_1d(old_binning,mean_function,new_binning):    
     """
@@ -54,13 +54,12 @@ def interpolate_mean_2d(old_binning,mean_function,new_binning):
 
     """
     
-
     tck = inter.bisplrep(old_binning[:,0],old_binning[:,1],mean_function,task=1)
     
     mean_interpolate = N.zeros(len(new_binning))
     
     for i in range(len(new_binning)):
-        mean_interpolate[i] = interpolate.bisplev(old_binning[i,0],old_binning[i,1],tck)
+        mean_interpolate[i] = inter.bisplev(old_binning[i,0],old_binning[i,1],tck)
                                             
 
     return mean_interpolate 
