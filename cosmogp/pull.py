@@ -6,7 +6,7 @@ from scipy.stats import norm as normal
 
 class build_pull:
 
-    def __init__(self,y,y_err,Time,Time_mean,Mean_Y,sigma,L):
+    def __init__(self,y,y_err,Time,Time_mean,Mean_Y,hyperparameters,nd=False):
 
         self.y=y
         self.N_sn=len(y)
@@ -14,13 +14,20 @@ class build_pull:
         self.Time=Time
         self.Mean_Y=Mean_Y
         self.Time_mean=Time_mean
-        self.sigma=sigma
-        self.L=L
+        #self.sigma=sigma
+        #self.L=L
+        self.hyperparameters=hyperparameters
+        
         if len(self.y)==1:
             self.NOBJ=False
         else:
             self.NOBJ=True
 
+        if nd :
+            self.nd = True
+        else:
+            self.nd = False
+            
     def compute_pull(self,diFF=None):
 
         if diFF is None:
@@ -32,21 +39,27 @@ class build_pull:
         
         for sn in range(self.N_sn):
             print '%i/%i'%((sn+1,self.N_sn))
-            Pred=N.zeros(len(self.Time[sn]))
-            Pred_var=N.zeros(len(self.Time[sn]))
-            for t in range(len(self.Time[sn])):
-                FILTRE=N.array([True]*len(self.Time[sn]))
+            Pred=N.zeros(len(self.y[sn]))
+            Pred_var=N.zeros(len(self.y[sn]))
+            for t in range(len(self.y[sn])):
+                FILTRE=N.array([True]*len(self.y[sn]))
                 FILTRE[t]=False
                 
                 if self.NOBJ:
-                    GPP=cosmogp.gp_1D_Nobject([self.y[sn][FILTRE]],[self.Time[sn][FILTRE]],y_err=[self.y_err[sn][FILTRE]],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
+                    if self.nd:
+                        GPP=cosmogp.gp_2D_Nobject([self.y[sn][FILTRE]],[self.Time[sn][FILTRE]],y_err=[self.y_err[sn][FILTRE]],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
+                    else:
+                        GPP=cosmogp.gp_1D_Nobject([self.y[sn][FILTRE]],[self.Time[sn][FILTRE]],y_err=[self.y_err[sn][FILTRE]],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
+                        
                 else:
-                    GPP=cosmogp.gp_1D_1object(self.y[0][FILTRE],self.Time[0][FILTRE],y_err=self.y_err[0][FILTRE],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
+                    if self.nd:
+                        GPP=cosmogp.gp_1D_1object(self.y[0][FILTRE],self.Time[0][FILTRE],y_err=self.y_err[0][FILTRE],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
+                    else:
+                        GPP=cosmogp.gp_2D_1object(self.y[0][FILTRE],self.Time[0][FILTRE],y_err=self.y_err[0][FILTRE],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean)
 
                 GPP.substract_Mean(diff=[diFF[sn]])
                 
-                GPP.hyperparameters[0]=self.sigma
-                GPP.hyperparameters[1]=self.L
+                GPP.hyperparameters=self.hyperparameters
 
                 GPP.get_prediction(new_binning=self.Time[sn])
                 Pred[t]=GPP.Prediction[0][t]
@@ -55,7 +68,7 @@ class build_pull:
             pull=(Pred-self.y[sn])/N.sqrt(self.y_err[sn]**2+Pred_var)
             res=Pred-self.y[sn]
             self.pull.append(pull)
-            for t in range(len(self.Time[sn])):
+            for t in range(len(self.y[sn])):
                 self.PULL.append(pull[t])
                 self.RES.append(res[t])
 

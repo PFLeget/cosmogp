@@ -53,7 +53,6 @@ def interpolate_mean_2d(old_binning,mean_function,new_binning):
     output : mean_interpolate,  Mean function on the new grid (New_binning)
 
     """
-    
     tck = inter.bisplrep(old_binning[:,0],old_binning[:,1],mean_function,task=1)
     
     mean_interpolate = N.zeros(len(new_binning))
