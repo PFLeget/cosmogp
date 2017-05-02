@@ -2,14 +2,13 @@
 
 import numpy as N
 import matplotlib.gridspec as gridspec
-from scipy.optimize import fmin 
+from scipy.optimize import fmin
 import copy
 
 
-def Log_Likelihood_GP(y,y_err,Mean_Y,Time,kernel,hyperparameter,nugget):
+def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget):
     """
-    Log likehood to maximize in order to find hyperparameter
-    with 1D RBF kernel. 
+    Log likehood to maximize in order to find hyperparameter.
 
     The key point is that all matrix inversion are 
     done by SVD decomposition + (if needed) pseudo-inverse.
@@ -235,36 +234,36 @@ class Gaussian_process:
             self.hyperparameters[i]=N.sqrt(hyperparameters[i]**2)
 
 
-    def map_Log_Likelihood(self,window_sig=10.,window_l=10.):
-        """
-        plot the log likelihood nearby the solution in order to see 
-        if you are in a global maximum or a local maximum.
+    #def map_Log_Likelihood(self,window_sig=10.,window_l=10.):
+    #    """
+    #    plot the log likelihood nearby the solution in order to see 
+    #    if you are in a global maximum or a local maximum.
+    #
+    #    """
+    #
+    #    self.find_hyperparameters()
 
-        """
+    #    sig=self.hyperparameters[0]
+    #    L_corr=self.hyperparameters[1]
+    #    
 
-        self.find_hyperparameters()
+    #    SIGMAA=N.linspace(sig-window_sig,sig+window_l,100)
+    #    ll=N.linspace(L_corr-window_l,L_corr+window_l,100)
 
-        sig=self.hyperparameters[0]
-        L_corr=self.hyperparameters[1]
-        
+    #    SIGMA, l = N.meshgrid(SIGMAA,ll)
+    #    self.Map_log_l=N.zeros((len(SIGMA),len(l)))
 
-        SIGMAA=N.linspace(sig-window_sig,sig+window_l,100)
-        ll=N.linspace(L_corr-window_l,L_corr+window_l,100)
+    #    for i in range(len(SIGMA)):
+    #        for j in range(len(l)):
+    #            self.compute_Log_Likelihood(SIGMA[i,j],l[i,j])
+    #            self.Map_log_l[i,j]=self.Log_Likelihood[0]
+    #            print ''
+    #            print i , j
+    #            print SIGMA[i,j],l[i,j]
+    #            print self.Log_Likelihood[0]
 
-        SIGMA, l = N.meshgrid(SIGMAA,ll)
-        self.Map_log_l=N.zeros((len(SIGMA),len(l)))
-
-        for i in range(len(SIGMA)):
-            for j in range(len(l)):
-                self.compute_Log_Likelihood(SIGMA[i,j],l[i,j])
-                self.Map_log_l[i,j]=self.Log_Likelihood[0]
-                print ''
-                print i , j
-                print SIGMA[i,j],l[i,j]
-                print self.Log_Likelihood[0]
-
-        import pylab as P
-        P.pcolor(SIGMA, l, self.Map_log_l)
+    #    import pylab as P
+    #    P.pcolor(SIGMA, l, self.Map_log_l)
 
           
     def compute_covariance_matrix_K(self):
@@ -273,21 +272,6 @@ class Gaussian_process:
         for sn in range(self.N_sn):
             self.K.append(self.kernel(self.Time[sn],self.hyperparameters,0.,y_err=self.y_err[sn]))
         
-    #def compute_HT_matrix(self,NEW_binning):
-    #    
-    #    self.HT=[]
-    #
-    #    for sn in range(self.N_sn): 
-    #        if self.as_the_same_time:
-    #            New_binning=NEW_binning[sn]
-    #        else:
-    #            New_binning=NEW_binning
-    #
-    #        self.HT.append(N.zeros((len(New_binning),len(self.Time[sn]))))
-    #        for i in range(len(New_binning)):
-    #            for j in range(len(self.Time[sn])):
-    #                self.HT[sn][i,j]=(self.hyperparameters[0]**2)*N.exp(-0.5*((New_binning[i]-self.Time[sn][j])/self.hyperparameters[1])**2)
-            
 
     def get_prediction(self,new_binning=None,COV=True):
         """
@@ -463,8 +447,3 @@ class gp_2D_Nobject(Gaussian_process):
 
         Gaussian_process.__init__(self,y,Time,kernel=kernel,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
 
-
-
-if __name__=="__main__":
-
-    print 'ok'

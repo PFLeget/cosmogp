@@ -116,21 +116,32 @@ def rbf_kernel_2d(x,hyperparameter,nugget,floor=0.00,y_err=None):
     if y_err is None:
         y_err = N.zeros(len(x))
     
-    Cov = N.zeros((len(x),len(x)))
-    L=N.array(([hyperparameter[1]**2,hyperparameter[3]],
-               [hyperparameter[3],hyperparameter[2]**2]))
+    #Cov = N.zeros((len(x),len(x)))
+    #L=N.array(([hyperparameter[1]**2,hyperparameter[3]],
+    #           [hyperparameter[3],hyperparameter[2]**2]))
     
-    Inv_L=N.linalg.inv(L)
+    #Inv_L=N.linalg.inv(L)
     
-    for i in range(len(x)):
-        for j in range(len(x)):
-            delta_x = x[i]-x[j]
-            delta_x_t = delta_x.reshape((len(delta_x),1))
-            Cov[i,j] = (hyperparameter[0]**2)*N.exp(-0.5*delta_x.dot(N.dot(Inv_L,delta_x_t)))
-            
-            if i==j:
-                Cov[i,j] += y_err[i]**2+floor**2+nugget**2
+    Inv_L=N.array(([hyperparameter[2]**2,-hyperparameter[3]],
+                   [-hyperparameter[3],hyperparameter[1]**2]))
+    
+    Inv_L*=1./(((hyperparameter[1]**2)*(hyperparameter[2]**2))-hyperparameter[3]**2)
+    
+    #for i in range(len(x)):
+    #    for j in range(len(x)):
+    #        delta_x = x[i]-x[j]
+    #        delta_x_t = delta_x.reshape((len(delta_x),1))
+    #        Cov[i,j] = (hyperparameter[0]**2)*N.exp(-0.5*delta_x.dot(N.dot(Inv_L,delta_x_t)))
+    #        
+    #        if i==j:
+    #            Cov[i,j] += y_err[i]**2+floor**2+nugget**2
 
+    A = (x[:,0]-x[:,0][:,None])
+    B = (x[:,1]-x[:,1][:,None])
+
+    Cov = (hyperparameter[0]**2)*N.exp(-0.5*(A*A*Inv_L[0,0] + 2.*A*B*Inv_L[0,1] + B*B*Inv_L[1,1]))
+    Cov += (N.eye(len(y_err))*y_err**2)+floor**2+nugget**2 
+    
     return Cov
 
 
