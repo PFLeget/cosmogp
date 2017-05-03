@@ -52,7 +52,7 @@ Package developers will want to run::
 Dependencies
 ------------
 
-``Clusters`` has for now the following dependencies (see the quick
+``cosmogp`` has for now the following dependencies (see the quick
 installs below):
 
 - Python 2.7 and libraries listed in the `requirements <requirements.txt>`_ file
