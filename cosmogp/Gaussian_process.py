@@ -416,22 +416,18 @@ class Gaussian_process:
         P.xlabel(x_label)
 
         
-class gp_1D_1object(Gaussian_process):
+class gaussian_process(Gaussian_process):
     
     
     def __init__(self,y,Time,kernel='RBF1D',y_err=None,Mean_Y=None,Time_mean=None):
 
-        assert type(y) is N.ndarray, "y is not array " 
-        assert y.ndim == 1, "y should be a 1D array "
-        
-        
         if y_err is not None:
             y_err=[y_err]
         
         Gaussian_process.__init__(self,[y],[Time],kernel=kernel,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
 
 
-class gp_1D_Nobject(Gaussian_process):
+class gaussian_process_nobject(Gaussian_process):
 
     
     def __init__(self,y,Time,kernel='RBF1D',y_err=None,Mean_Y=None,Time_mean=None):
@@ -439,10 +435,4 @@ class gp_1D_Nobject(Gaussian_process):
         Gaussian_process.__init__(self,y,Time,kernel=kernel,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
 
 
-class gp_2D_Nobject(Gaussian_process):
-
-    
-    def __init__(self,y,Time,y_err=None,kernel='RBF2D',Mean_Y=None,Time_mean=None):
-
-        Gaussian_process.__init__(self,y,Time,kernel=kernel,y_err=y_err,Mean_Y=Mean_Y,Time_mean=Time_mean)
 
