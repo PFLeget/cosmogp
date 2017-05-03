@@ -359,7 +359,6 @@ class Gaussian_process:
                 self.covariance_matrix[sn]+=self.kernel(self.new_binning[sn],self.hyperparameters,0)
             else:
                 self.covariance_matrix[sn]+=self.kernel(self.new_binning,self.hyperparameters,0)
-
             
 
     def plot_prediction(self,sn,Error=False,TITLE=None,y1_label='Y',y2_label='Y-<Y>',x_label='X'):
