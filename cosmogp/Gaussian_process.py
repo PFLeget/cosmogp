@@ -1,7 +1,6 @@
 """gaussian process interpolator."""
 
 import numpy as N
-import matplotlib.gridspec as gridspec
 from scipy.optimize import fmin
 import copy
 
@@ -363,8 +362,9 @@ class Gaussian_process:
 
     def plot_prediction(self,sn,Error=False,TITLE=None,y1_label='Y',y2_label='Y-<Y>',x_label='X'):
 
-        import pylab as P 
-        
+        from matplotlib import pyplot as P 
+        import matplotlib.gridspec as gridspec
+
         if not self.as_the_same_time:
             Time_predict=self.new_binning
         else:

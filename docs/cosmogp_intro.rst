@@ -2,9 +2,9 @@
 All about cosmogp
 ############
 
-cosmogp is a gaussian process code write in python
+cosmogp is a gaussian process code interpolator develloped in python.
 
-cosmogp can:
+cosmogp was mainly developed to :
 
-*   interpolate in 1D
-*   interpolate in 2D
+*   interpolate in one dimension (like supernova ligth-curves)
+*   interpolate in two dimensions (like PSF within the full focal plane)

@@ -6,10 +6,12 @@
 Welcome to cosmogp's documentation!
 ===================================
 
+.. warning:: Package under development
+
 .. toctree::
    :maxdepth: 2
 	      
-   cosmogp_intro
+   readme
 
 .. toctree::
    :maxdepth: 2
