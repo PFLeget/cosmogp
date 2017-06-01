@@ -162,7 +162,12 @@ class Gaussian_process:
         if y_err is not None:
             self.y_err=y_err
         else:
-            self.y_err=N.zeros_like(self.y)
+            if len(self.y)==1:
+                self.y_err=[N.zeros(len(self.y[0]))]
+            else:
+                self.y_err=[]
+                for i in range(len(self.y)):
+                    self.y_err.append(N.zeros_like(self.y[i]))
             
         if Time_mean is not None:
             self.Time_mean=Time_mean
@@ -204,7 +209,7 @@ class Gaussian_process:
             Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],self.kernel,hyperparameter,Nugget)
         
-        print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' ly: ', hyperparameter[2], ' lxy: ', hyperparameter[3], ' Log_like: ', Log_Likelihood[0]
+        #print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' ly: ', hyperparameter[2], ' lxy: ', hyperparameter[3], ' Log_like: ', Log_Likelihood[0]
         #print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' Log_like: ', Log_Likelihood[0]
         self.Log_Likelihood=Log_Likelihood
 
@@ -227,7 +232,7 @@ class Gaussian_process:
         for i in range(len(self.hyperparameters)):
             initial_guess.append(self.hyperparameters[i])
         
-        hyperparameters=fmin(_compute_Log_Likelihood,initial_guess)
+        hyperparameters=fmin(_compute_Log_Likelihood,initial_guess,disp=False)
         
         for i in range(len(self.hyperparameters)):
             self.hyperparameters[i]=N.sqrt(hyperparameters[i]**2)
