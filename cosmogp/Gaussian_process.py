@@ -5,7 +5,7 @@ from scipy.optimize import fmin
 import copy
 
 
-def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget):
+def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget,SVD=True):
     """
     Log likehood to maximize in order to find hyperparameter.
 
@@ -47,13 +47,20 @@ def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget):
     K = kernel(Time,hyperparameter,nugget,y_err=y_err)
     y_ket = y.reshape(len(y),1)
     Mean_Y_ket = Mean_Y.reshape(len(Mean_Y),1)
-    #SVD deconposition for K matrix
-    U,s,V = N.linalg.svd(K)
-    # Pseudo-inverse 
-    Filtre = (s>10**-15)
-    if N.sum(Filtre)!=len(Filtre):
-         print 'Pseudo-inverse decomposition :', len(Filtre)-N.sum(Filtre)
-    inv_K = N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
+    if SVD :
+        #SVD deconposition for K matrix
+        U,s,V = N.linalg.svd(K)
+        # Pseudo-inverse 
+        Filtre = (s>10**-15)
+        if N.sum(Filtre)!=len(Filtre):
+            print 'Pseudo-inverse decomposition :', len(Filtre)-N.sum(Filtre)
+        inv_K = N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
+    else : #cholesky decomposition
+        L = N.linalg.cholesky(K)
+        inv_L =N.linalg.inv(L)
+        inv_K = N.dot(inv_L.T,inv_L)
+                                        
+
     Log_Likelihood = (-0.5*(N.dot((y-Mean_Y),N.dot(inv_K,(y_ket-Mean_Y_ket)))))
 
     Log_Likelihood += N.log((1./(2*N.pi)**(NT/2.)))
@@ -132,7 +139,7 @@ class Gaussian_process:
             self.kernel=kernel
             self.compute_HT_matrix= compute_ht
             self.interpolate_mean = interpolate_mean 
-            self.hyperparameters=N.array([0.5, 2.0])
+            self.hyperparameters=N.array([0.5, 1.])
 
         if kernel == 'RBF2D':
             from cosmogp import rbf_kernel_2d as kernel
@@ -277,7 +284,7 @@ class Gaussian_process:
             self.K.append(self.kernel(self.Time[sn],self.hyperparameters,0.,y_err=self.y_err[sn]))
         
 
-    def get_prediction(self,new_binning=None,COV=True):
+    def get_prediction(self,new_binning=None,COV=True,SVD=True):
         """
         Compute your interpolation.
 
@@ -323,13 +330,18 @@ class Gaussian_process:
             self.inv_K.append(N.zeros((len(self.Time[sn]),len(self.Time[sn]))))
             Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Y_ket=(self.y[sn]-Mean_Y).reshape(len(self.y[sn]),1)
-            #SVD deconposition for K matrix
-            U,s,V=N.linalg.svd(self.K[sn])
-            # Pseudo-inverse 
-            Filtre=(s>10**-15)
-            #if N.sum(Filtre)!=len(Filtre):
-            #     print 'ANDALOUSE :', len(Filtre)-N.sum(Filtre)
-            inv_K=N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
+
+            if SVD:
+                #SVD deconposition for K matrix
+                U,s,V=N.linalg.svd(self.K[sn])
+                # Pseudo-inverse 
+                Filtre=(s>10**-15)
+                inv_K=N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
+            else: #choleski decomposition
+                L = N.linalg.cholesky(self.K[sn])
+                inv_L = N.linalg.inv(L)
+                inv_K = N.dot(inv_L.T,inv_L)
+                
             self.inv_K[sn]=inv_K
             
             self.Prediction[sn]+=(N.dot(self.HT[sn],N.dot(inv_K,Y_ket))).T[0]

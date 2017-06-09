@@ -19,8 +19,7 @@ class build_pull:
         
     def compute_pull(self,diFF=None):
 
-        if diFF is None:
-            diFF=N.zeros(self.N_sn)
+
 
         self.pull=[]
         self.PULL=[]
@@ -35,8 +34,11 @@ class build_pull:
                 FILTRE[t]=False
                 
                 GPP=cosmogp.gaussian_process(self.y[sn][FILTRE],self.Time[sn][FILTRE],y_err=self.y_err[sn][FILTRE],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean,kernel=self.kernel)
-                
-                GPP.substract_Mean(diff=[diFF[sn]])
+
+                if diFF is None:
+                    GPP.substract_Mean(diff=None)
+                else:
+                    GPP.substract_Mean(diff=[diFF[sn]])
                 
                 GPP.hyperparameters=self.hyperparameters
                 GPP.get_prediction(new_binning=self.Time[sn])
