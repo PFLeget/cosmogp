@@ -4,6 +4,15 @@ import numpy as N
 from scipy.optimize import fmin
 import copy
 
+#try : from svd_tmv import computeSVDInverse as svd
+#except : from cosmogp import svd_inverse as svd
+
+#try : from svd_tmv import computeLDLInverse as chol
+#except : from cosmogp import cholesky_inverse as chol
+
+from cosmogp import svd_inverse as svd
+from cosmogp import cholesky_inverse as chol
+
 
 def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget,SVD=True):
     """
@@ -47,26 +56,19 @@ def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget,SVD
     K = kernel(Time,hyperparameter,nugget,y_err=y_err)
     y_ket = y.reshape(len(y),1)
     Mean_Y_ket = Mean_Y.reshape(len(Mean_Y),1)
-    if SVD :
-        #SVD deconposition for K matrix
-        U,s,V = N.linalg.svd(K)
-        # Pseudo-inverse 
-        Filtre = (s>10**-15)
-        if N.sum(Filtre)!=len(Filtre):
-            print 'Pseudo-inverse decomposition :', len(Filtre)-N.sum(Filtre)
-        inv_K = N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
+    
+    if SVD : #svd decomposition 
+        inv_K,log_det_K = svd(K,return_logdet=True)
     else : #cholesky decomposition
-        L = N.linalg.cholesky(K)
-        inv_L =N.linalg.inv(L)
-        inv_K = N.dot(inv_L.T,inv_L)
-                                        
+        inv_K,log_det_K = chol(K,return_logdet=True)
 
     Log_Likelihood = (-0.5*(N.dot((y-Mean_Y),N.dot(inv_K,(y_ket-Mean_Y_ket)))))
 
     Log_Likelihood += N.log((1./(2*N.pi)**(NT/2.)))
-    Log_Likelihood -= 0.5*N.sum(N.log(s[Filtre]))
-    if N.sum(Filtre)!=len(Filtre):
-         Log_Likelihood -= 0.5*(len(Filtre)-N.sum(Filtre))*N.log(10**-15)
+    Log_Likelihood -= 0.5*log_det_K
+    
+    #if N.sum(Filtre)!=len(Filtre):
+    #     Log_Likelihood -= 0.5*(len(Filtre)-N.sum(Filtre))*N.log(10**-15)
     
     return Log_Likelihood
 
@@ -154,17 +156,13 @@ class Gaussian_process:
         self.y=y
         self.N_sn=len(y)
         self.Time=Time
+        self.nugget=0.
 
         
         self.SUBSTRACT_MEAN=False
         self.CONTEUR_MEAN=0
         self.diff=N.zeros(self.N_sn)
 
-
-        if Mean_Y is not None:
-            self.Mean_Y=Mean_Y
-        else:
-            self.Mean_Y=N.zeros_like(self.y[0])
             
         if y_err is not None:
             self.y_err=y_err
@@ -175,12 +173,20 @@ class Gaussian_process:
                 self.y_err=[]
                 for i in range(len(self.y)):
                     self.y_err.append(N.zeros_like(self.y[i]))
-            
+
+        if Mean_Y is not None:
+            self.Mean_Y=Mean_Y
+        else:
+            self.Mean_Y=N.zeros_like(self.y[0])
+                    
         if Time_mean is not None:
             self.Time_mean=Time_mean
         else:
             self.Time_mean=self.Time[0]
 
+        self.substract_Mean()
+        
+            
     def substract_Mean(self,diff=None):
         """
         in order to avoid systematic difference between 
@@ -204,84 +210,63 @@ class Gaussian_process:
 
 
 
-    def compute_Log_Likelihood(self,hyperparameter):
+    def compute_Log_Likelihood(self,Hyperparameter,svd_log=True):
         """
         compute the global likelihood for all your data 
         for a set of hyperparameters 
         """
-
-        Nugget=0
+        if self.fit_nugget:
+            Nugget=Hyperparameter[-1]
+            hyperparameter=Hyperparameter[:-1]
+        else:
+            Nugget=0
+            hyperparameter=Hyperparameter
+            
         Log_Likelihood=0
         for sn in range(self.N_sn):
             Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
-            Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],self.kernel,hyperparameter,Nugget)
-        
-        #print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' ly: ', hyperparameter[2], ' lxy: ', hyperparameter[3], ' Log_like: ', Log_Likelihood[0]
-        #print 'sigma : ', hyperparameter[0], ' lx: ', hyperparameter[1], ' Log_like: ', Log_Likelihood[0]
+            Log_Likelihood+=Log_Likelihood_GP(self.y[sn],self.y_err[sn],Mean_Y,self.Time[sn],self.kernel,hyperparameter,Nugget,SVD=svd_log)
+
         self.Log_Likelihood=Log_Likelihood
 
 
 
-    def find_hyperparameters(self):
+    def find_hyperparameters(self,nugget=False,SVD=True):
         """
         Search hyperparameter using a maximum likelihood.
         Maximize with optimize.fmin for the moment 
 
         """
 
-        def _compute_Log_Likelihood(Hyper):
+        def _compute_Log_Likelihood(Hyper,svd_log=SVD):
 
-            self.compute_Log_Likelihood(Hyper)
+            self.compute_Log_Likelihood(Hyper,svd_log=svd_log)
             
             return -self.Log_Likelihood[0]     
 
         initial_guess=[]
         for i in range(len(self.hyperparameters)):
             initial_guess.append(self.hyperparameters[i])
-        
+        if nugget:
+            self.fit_nugget=True
+            initial_guess.append(0.)
+        else:
+            self.fit_nugget=False
+            
         hyperparameters=fmin(_compute_Log_Likelihood,initial_guess,disp=False)
         
         for i in range(len(self.hyperparameters)):
-            self.hyperparameters[i]=N.sqrt(hyperparameters[i]**2)
+                self.hyperparameters[i]=N.sqrt(hyperparameters[i]**2)
+        
+        if self.fit_nugget:
+            self.nugget=N.sqrt(hyperparameters[-1]**2)
 
-
-    #def map_Log_Likelihood(self,window_sig=10.,window_l=10.):
-    #    """
-    #    plot the log likelihood nearby the solution in order to see 
-    #    if you are in a global maximum or a local maximum.
-    #
-    #    """
-    #
-    #    self.find_hyperparameters()
-
-    #    sig=self.hyperparameters[0]
-    #    L_corr=self.hyperparameters[1]
-    #    
-
-    #    SIGMAA=N.linspace(sig-window_sig,sig+window_l,100)
-    #    ll=N.linspace(L_corr-window_l,L_corr+window_l,100)
-
-    #    SIGMA, l = N.meshgrid(SIGMAA,ll)
-    #    self.Map_log_l=N.zeros((len(SIGMA),len(l)))
-
-    #    for i in range(len(SIGMA)):
-    #        for j in range(len(l)):
-    #            self.compute_Log_Likelihood(SIGMA[i,j],l[i,j])
-    #            self.Map_log_l[i,j]=self.Log_Likelihood[0]
-    #            print ''
-    #            print i , j
-    #            print SIGMA[i,j],l[i,j]
-    #            print self.Log_Likelihood[0]
-
-    #    import pylab as P
-    #    P.pcolor(SIGMA, l, self.Map_log_l)
-
-          
+            
     def compute_covariance_matrix_K(self):
 
         self.K=[]
         for sn in range(self.N_sn):
-            self.K.append(self.kernel(self.Time[sn],self.hyperparameters,0.,y_err=self.y_err[sn]))
+            self.K.append(self.kernel(self.Time[sn],self.hyperparameters,self.nugget,y_err=self.y_err[sn]))
         
 
     def get_prediction(self,new_binning=None,COV=True,SVD=True):
@@ -309,7 +294,6 @@ class Gaussian_process:
             self.as_the_same_time=False
             self.new_binning=new_binning
         self.compute_covariance_matrix_K()
-        #self.compute_HT_matrix(self.new_binning)
         self.HT=self.compute_HT_matrix(self.new_binning,self.Time,
                                        self.hyperparameters,as_the_same_grid=self.as_the_same_time)
         self.Prediction=[]
@@ -331,16 +315,10 @@ class Gaussian_process:
             Mean_Y=self.interpolate_mean(self.Time_mean,self.Mean_Y,self.Time[sn])
             Y_ket=(self.y[sn]-Mean_Y).reshape(len(self.y[sn]),1)
 
-            if SVD:
-                #SVD deconposition for K matrix
-                U,s,V=N.linalg.svd(self.K[sn])
-                # Pseudo-inverse 
-                Filtre=(s>10**-15)
-                inv_K=N.dot(V.T[:,Filtre],N.dot(N.diag(1./s[Filtre]),U.T[Filtre]))
+            if SVD: #SVD deconposition for K matrix
+                inv_K = svd(self.K[sn])
             else: #choleski decomposition
-                L = N.linalg.cholesky(self.K[sn])
-                inv_L = N.linalg.inv(L)
-                inv_K = N.dot(inv_L.T,inv_L)
+                inv_K = chol(self.K[sn])
                 
             self.inv_K[sn]=inv_K
             
