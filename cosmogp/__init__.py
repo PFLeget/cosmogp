@@ -18,6 +18,7 @@ from .Gaussian_process import Gaussian_process
 from .Gaussian_process import gaussian_process
 from .Gaussian_process import gaussian_process_nobject
 
+from .kernel import init_rbf
 from .kernel import rbf_kernel_1d
 from .kernel import rbf_kernel_2d
 from .kernel import compute_rbf_1d_ht_matrix

@@ -2,6 +2,25 @@
 
 import numpy as N
 
+def init_rbf(x,y):
+    
+    number_point = N.zeros(len(y))
+    L_min = N.zeros(len(y))
+    L_max = N.zeros(len(y))
+    sigma = N.zeros(len(y))
+    
+    for i in range(len(y)):
+        L_min = N.min(x[i])
+        L_max = N.max(x[i])
+        number_point[i] = len(x[i])
+        sigma = N.std(y[i])
+    
+    d = N.mean(N.sqrt((L_max-L_min)**2/number_point))
+    L = N.mean(L_max-L_min)
+
+    return N.mean(sigma), N.mean([d,L])
+    
+
 def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
     """
     1D RBF kernel.

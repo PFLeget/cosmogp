@@ -4,14 +4,11 @@ import numpy as N
 from scipy.optimize import fmin
 import copy
 
-#try : from svd_tmv import computeSVDInverse as svd
-#except : from cosmogp import svd_inverse as svd
+try : from svd_tmv import computeSVDInverse as svd
+except : from cosmogp import svd_inverse as svd
 
-#try : from svd_tmv import computeLDLInverse as chol
-#except : from cosmogp import cholesky_inverse as chol
-
-from cosmogp import svd_inverse as svd
-from cosmogp import cholesky_inverse as chol
+try : from svd_tmv import computeLDLInverse as chol
+except : from cosmogp import cholesky_inverse as chol
 
 
 def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget,SVD=True):
@@ -137,21 +134,25 @@ class Gaussian_process:
             from cosmogp import rbf_kernel_1d as kernel
             from cosmogp import interpolate_mean_1d as interpolate_mean
             from cosmogp import compute_rbf_1d_ht_matrix as compute_ht
+            from cosmogp import init_rbf as init_hyperparam
             
             self.kernel=kernel
             self.compute_HT_matrix= compute_ht
-            self.interpolate_mean = interpolate_mean 
-            self.hyperparameters=N.array([0.5, 1.])
+            self.interpolate_mean = interpolate_mean
+            sigma,L = init_hyperparam(Time,y)
+            self.hyperparameters=N.array([sigma, L])
 
         if kernel == 'RBF2D':
             from cosmogp import rbf_kernel_2d as kernel
             from cosmogp import interpolate_mean_2d as interpolate_mean
             from cosmogp import compute_rbf_2d_ht_matrix as compute_ht
+            from cosmogp import init_rbf as init_hyperparam
             
             self.kernel = kernel
             self.compute_HT_matrix = compute_ht
-            self.interpolate_mean = interpolate_mean 
-            self.hyperparameters = N.array([0.5, 2.0, 2.0, 0.])
+            self.interpolate_mean = interpolate_mean
+            sigma,L = init_hyperparam(Time,y)
+            self.hyperparameters = N.array([sigma, L, L, 0.])
             
         self.y=y
         self.N_sn=len(y)
@@ -185,7 +186,7 @@ class Gaussian_process:
             self.Time_mean=self.Time[0]
 
         self.substract_Mean()
-        
+        self.CONTEUR_MEAN+=1
             
     def substract_Mean(self,diff=None):
         """
@@ -209,7 +210,6 @@ class Gaussian_process:
         self.Mean_Y=N.zeros(len(self.Time_mean))
 
 
-
     def compute_Log_Likelihood(self,Hyperparameter,svd_log=True):
         """
         compute the global likelihood for all your data 
@@ -231,12 +231,16 @@ class Gaussian_process:
 
 
 
-    def find_hyperparameters(self,nugget=False,SVD=True):
+    def find_hyperparameters(self,hyperparameter_guess=None,nugget=False,SVD=True):
         """
         Search hyperparameter using a maximum likelihood.
         Maximize with optimize.fmin for the moment 
 
         """
+
+        if hyperparameter_guess is not None :
+            assert len(self.hyperparameters) == len(hyperparameter_guess), 'should be same len' 
+            self.hyperparameters = hyperparameter_guess
 
         def _compute_Log_Likelihood(Hyper,svd_log=SVD):
 
@@ -249,7 +253,7 @@ class Gaussian_process:
             initial_guess.append(self.hyperparameters[i])
         if nugget:
             self.fit_nugget=True
-            initial_guess.append(0.)
+            initial_guess.append(1.)
         else:
             self.fit_nugget=False
             
@@ -284,6 +288,7 @@ class Gaussian_process:
 
         """
         if self.SUBSTRACT_MEAN and self.CONTEUR_MEAN!=0:
+
             self.substract_Mean(diff=self.diff)
             self.CONTEUR_MEAN=0
 
@@ -330,6 +335,7 @@ class Gaussian_process:
             self.get_covariance_matrix()
 
         if self.SUBSTRACT_MEAN and self.CONTEUR_MEAN==0:
+
             for sn in range(self.N_sn):
                 if self.as_the_same_time:
                     True_mean=self.interpolate_mean(self.Time_mean,self.TRUE_mean,self.new_binning[sn])
