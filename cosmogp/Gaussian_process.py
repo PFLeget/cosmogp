@@ -4,14 +4,15 @@ import numpy as N
 from scipy.optimize import fmin
 import copy
 
-try : from svd_tmv import computeSVDInverse as svd
-except : from cosmogp import svd_inverse as svd
+try: from svd_tmv import computeSVDInverse as svd
+except: from cosmogp import svd_inverse as svd
 
-try : from svd_tmv import computeLDLInverse as chol
-except : from cosmogp import cholesky_inverse as chol
+try: from svd_tmv import computeLDLInverse as chol
+except: from cosmogp import cholesky_inverse as chol
 
 
 def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget,SVD=True):
+    
     """
     Log likehood to maximize in order to find hyperparameter.
 
@@ -71,6 +72,7 @@ def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel, hyperparameter, nugget,SVD
 
 
 class Gaussian_process:
+    
     """    
     Gaussian process interpolator. 
 
@@ -185,8 +187,8 @@ class Gaussian_process:
         else:
             self.Time_mean=self.Time[0]
 
-        self.substract_Mean()
-        self.CONTEUR_MEAN+=1
+        #self.substract_Mean()
+        #self.CONTEUR_MEAN+=1
             
     def substract_Mean(self,diff=None):
         """

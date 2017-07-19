@@ -1,82 +1,138 @@
-import numpy as N
+""" Compute the pull and the residual of GP."""
+
+import numpy as np
 import cosmogp
 from scipy.stats import norm as normal
 
 
-
 class build_pull:
 
-    def __init__(self,y,Time,hyperparameters,nugget=0.,y_err=None,Time_mean=None,Mean_Y=None,kernel='RBF1D'):
+    def __init__(self,y,x,hyperparameters,
+                 nugget=0.,y_err=None,y_mean=None,
+                 x_axis_mean=None,kernel='RBF1D'):
 
-        self.y=y
-        self.N_sn=len(y)
-        self.y_err=y_err
-        self.Time=Time
-        self.Mean_Y=Mean_Y
-        self.Time_mean=Time_mean
-        self.hyperparameters=hyperparameters
-        self.kernel=kernel
-        self.nugget=nugget
+        """
+        Build the pull of GP interpolation. 
         
-    def compute_pull(self,diFF=None,SVD=True):
+        Basically it will return you the pull and 
+        the residual for a given kernel and a given 
+        set of hyperparameter(s). 
+        """
 
-        self.pull=[]
-        self.PULL=[]
-        self.RES=[]
+        self.y = y
+        self.x = x
+        self.hyperparameters = hyperparameters
+
+        self.y_err = y_err
+        self.y_mean = y_mean
+        self.x_axis_mean = x_axis_mean
+
+        self.kernel = kernel
+        self.nugget = nugget
         
-        for sn in range(self.N_sn):
-            #print '%i/%i'%((sn+1,self.N_sn))
-            Pred=N.zeros(len(self.y[sn]))
-            Pred_var=N.zeros(len(self.y[sn]))
+        self.n_object = len(y)
+
+        self._pull = []
+        self.pull = []
+        self.residual = []
+
+        self.pull_average = None
+        self.pull_std = None
+
+        
+    def compute_pull(self,diff=None,svd=True,
+                     substract_mean=False):
+
+        """
+        Function that compute the pull.
+
+        Will return pull and residual
+        """
+        
+        for sn in range(self.n_object):
+
+            pred = np.zeros(len(self.y[sn]))
+            pred_var = np.zeros(len(self.y[sn]))
+            
             for t in range(len(self.y[sn])):
-                FILTRE=N.array([True]*len(self.y[sn]))
-                FILTRE[t]=False
                 
-                if self.y_err is None :
-                    yerr=N.zeros_like(self.y[sn])
+                FILTRE = np.array([True]*len(self.y[sn]))
+                FILTRE[t] = False
+                
+                if self.y_err is None:
+                    yerr = np.zeros_like(self.y[sn])
                 else:
-                    yerr=self.y_err[sn]
+                    yerr = self.y_err[sn]
                     
-                GPP=cosmogp.gaussian_process(self.y[sn][FILTRE],self.Time[sn][FILTRE],y_err=yerr[FILTRE],Mean_Y=self.Mean_Y,Time_mean=self.Time_mean,kernel=self.kernel)
+                gpp = cosmogp.gaussian_process(self.y[sn][FILTRE],
+                                               self.x[sn][FILTRE],
+                                               y_err=yerr[FILTRE],
+                                               Mean_Y=self.y_mean,
+                                               Time_mean=self.x_axis_mean,
+                                               kernel=self.kernel)
+                
+                if diff or substract_mean:
+                    if diff is None:
+                        gpp.substract_Mean(diff=None)
+                    else:
+                        gpp.substract_Mean(diff=[diff[sn]])
+                                
+                gpp.hyperparameters = self.hyperparameters
+                gpp.nugget = self.nugget
+                gpp.get_prediction(new_binning=self.x[sn],SVD=svd)
+                
+                pred[t] = gpp.Prediction[0][t]
+                pred_var[t] = abs(gpp.covariance_matrix[0][t,t])
 
-                if diFF is None:
-                    GPP.substract_Mean(diff=None)
-                else:
-                    GPP.substract_Mean(diff=[diFF[sn]])
-                
-                GPP.hyperparameters=self.hyperparameters
-                GPP.nugget=self.nugget
-                GPP.get_prediction(new_binning=self.Time[sn],SVD=SVD)
-                Pred[t]=GPP.Prediction[0][t]
-                Pred_var[t]=abs(GPP.covariance_matrix[0][t,t])
-                
-            self.Pred_var=Pred_var
-            pull=(Pred-self.y[sn])/N.sqrt(yerr**2+Pred_var+self.nugget**2)
-            res=Pred-self.y[sn]
-            self.pull.append(pull)
+            self.gpp = gpp
+            
+            self.pred_var = pred_var
+            pull = (pred-self.y[sn])/np.sqrt(yerr**2+pred_var+self.nugget**2)
+            res = pred-self.y[sn]
+            self._pull.append(pull)
+            
             for t in range(len(self.y[sn])):
-                self.PULL.append(pull[t])
-                self.RES.append(res[t])
+                self.pull.append(pull[t])
+                self.residual.append(res[t])
 
-        self.Moyenne_pull,self.ecart_type_pull=normal.fit(self.PULL)
+        self.pull_average,self.pull_std = normal.fit(self.pull)
 
 
-    def plot_result(self,BIN=60,Lambda=None):
+    def plot_result(self,binning=60):
 
-        import pylab as P
-        P.hist(self.PULL,bins=BIN,normed=True)
-        xmin, xmax = P.xlim()
-        MAX=max([abs(xmin),abs(xmax)])
-        P.xlim(-MAX,MAX)
-        xmin, xmax = P.xlim()
-        X = N.linspace(xmin, xmax, 100)
-        PDF = normal.pdf(X, self.Moyenne_pull, self.ecart_type_pull)
-        P.plot(X, PDF, 'r', linewidth=3)
-        if Lambda is None:
-            title = r"Fit results: $\mu$ = %.2f, $\sigma$ = %.2f" % (self.Moyenne_pull, self.ecart_type_pull)
-        else:
-            title = r"Fit results ($\lambda = %i \AA$): $\mu$ = %.2f, $\sigma$ = %.2f" %((Lambda,self.Moyenne_pull, self.ecart_type_pull))
-        P.title(title)
-        P.ylabel('Number of points (normed)')
-        P.xlabel('Pull')
-        P.show()
+        """
+        Plot the pull distribution. 
+
+        Basically it will present the 
+        fit of the pull distribution as 
+        a normal law. 
+
+        binning: int or 1d numpy array. The
+        same parameter as in histogramme function
+        of matplotlib. 
+        """
+
+        import pylab as plt
+        
+        plt.figure()
+        
+        plt.hist(self.pull,bins=binning,normed=True)
+
+        xmin, xmax = plt.xlim()
+        _max = max([abs(xmin),abs(xmax)])
+        plt.xlim(-_max,_max)
+        xmin, xmax = plt.xlim()
+        xaxis = np.linspace(xmin, xmax, 100)
+        pdf = normal.pdf(xaxis, self.pull_average, self.pull_std)
+        
+        plt.plot(xaxis, pdf, 'r', linewidth=3)
+
+        title = r"Fit results: $\mu$ = $%.2f\pm%.2f$, $\sigma$ = $%.2f\pm%.2f$" % (self.pull_average,
+                                                                                   self.pull_std/np.sqrt(len(self.pull)),
+                                                                                   self.pull_std,
+                                                                                   self.pull_std/np.sqrt(2*len(self.pull)))
+        
+        plt.title(title)
+        plt.ylabel('Number of points (normed)')
+        plt.xlabel('Pull')
+
