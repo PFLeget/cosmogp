@@ -116,7 +116,7 @@ class build_pull:
 
         xmin, xmax = plt.xlim()
         _max = max([abs(xmin), abs(xmax)])
-        plt.xlim(-_max,_max)
+        plt.xlim(-_max, _max)
         xmin, xmax = plt.xlim()
         xaxis = np.linspace(xmin, xmax, 100)
         pdf = normal.pdf(xaxis, self.pull_average, self.pull_std)
@@ -124,9 +124,9 @@ class build_pull:
         plt.plot(xaxis, pdf, 'r', linewidth=3)
 
         title = r"Fit results: $\mu$ = $ %.2f \pm %.2f $,"% (self.pull_average,
-                                                         self.pull_std / np.sqrt(len(self.pull)))
+                                                             self.pull_std / np.sqrt(len(self.pull)))
         title += r"$\sigma$ = $ %.2f \pm %.2f $"%(self.pull_std,
-                                              self.pull_std / np.sqrt(2*len(self.pull)))
+                                                  self.pull_std / np.sqrt(2*len(self.pull)))
 
         plt.title(title)
         plt.ylabel('Number of points (normed)')
