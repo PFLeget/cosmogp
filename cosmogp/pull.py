@@ -54,7 +54,7 @@ class build_pull:
 
             for t in range(len(self.y[sn])):
 
-                filter_pull = np.array([True]*len(self.y[sn]))
+                filter_pull = np.array([True] * len(self.y[sn]))
                 filter_pull[t] = False
 
                 if self.y_err is None:
@@ -80,10 +80,11 @@ class build_pull:
                 gpp.get_prediction(new_binning=self.x[sn], SVD=svd)
 
                 pred[t] = gpp.Prediction[0][t]
-                pred_var[t] = abs(gpp.covariance_matrix[0][t,t])
+                pred_var[t] = abs(gpp.covariance_matrix[0][t, t])
 
 
-            pull = (pred - self.y[sn]) / np.sqrt(yerr**2 + pred_var + self.nugget**2)
+            pull = (pred - self.y[sn])
+            pull /= np.sqrt(yerr**2 + pred_var + self.nugget**2)
             res = pred - self.y[sn]
             self._pull.append(pull)
 
@@ -96,15 +97,15 @@ class build_pull:
 
     def plot_result(self, binning=60):
         """
-        Plot the pull distribution. 
+        Plot the pull distribution.
 
-        Basically it will present the 
-        fit of the pull distribution as 
-        a normal law. 
+        Basically it will present the
+        fit of the pull distribution as
+        a normal law.
 
         binning: int or 1d numpy array. The
         same parameter as in histogramme function
-        of matplotlib. 
+        of matplotlib.
         """
 
         import pylab as plt
@@ -122,9 +123,9 @@ class build_pull:
 
         plt.plot(xaxis, pdf, 'r', linewidth=3)
 
-        title = r"Fit results: $\mu$ = $%.2f\pm%.2f$,"% (self.pull_average,
+        title = r"Fit results: $\mu$ = $ %.2f \pm %.2f $,"% (self.pull_average,
                                                          self.pull_std / np.sqrt(len(self.pull)))
-        title += r"$\sigma$ = $%.2f\pm%.2f$"%(self.pull_std,
+        title += r"$\sigma$ = $ %.2f \pm %.2f $"%(self.pull_std,
                                               self.pull_std / np.sqrt(2*len(self.pull)))
 
         plt.title(title)
