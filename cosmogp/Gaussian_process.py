@@ -1,6 +1,6 @@
 """gaussian process interpolator."""
 
-import numpy as N
+import numpy as np
 from scipy.optimize import fmin
 import copy
 try: from svd_tmv import computeSVDInverse as svd
@@ -9,7 +9,7 @@ try: from svd_tmv import computeLDLInverse as chol
 except: from cosmogp import cholesky_inverse as chol
 
 
-def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel,
+def log_likelihood_gp(y, y_err, Mean_Y, Time, kernel,
                       hyperparameter, nugget,SVD=True):
     """
     Log likehood to maximize in order to find hyperparameter.
@@ -44,25 +44,25 @@ def Log_Likelihood_GP(y, y_err, Mean_Y, Time, kernel,
     order to explain intrinsic variability not discribe by
     the RBF kernel.
 
-    output : float. Log_Likelihood
+    output : float. log_likelihood
     """
 
     NT = len(Time)
-    K = kernel(Time,hyperparameter,nugget,y_err=y_err)
+    kernel_matrix = kernel(Time,hyperparameter,nugget,y_err=y_err)
     y_ket = y.reshape(len(y),1)
     Mean_Y_ket = Mean_Y.reshape(len(Mean_Y),1)
 
     if SVD : #svd decomposition
-        inv_K,log_det_K = svd(K,return_logdet=True)
+        inv_kernel_matrix,log_det_kernel_matrix = svd(kernel_matrix,return_logdet=True)
     else : #cholesky decomposition
-        inv_K,log_det_K = chol(K,return_logdet=True)
+        inv_kernel_matrix,log_det_kernel_matrix = chol(kernel_matrix,return_logdet=True)
 
-    Log_Likelihood = (-0.5*(N.dot((y-Mean_Y),N.dot(inv_K,(y_ket-Mean_Y_ket)))))
+    log_likelihood = (-0.5*(np.dot((y-Mean_Y),np.dot(inv_kernel_matrix,(y_ket-Mean_Y_ket)))))
 
-    Log_Likelihood += N.log((1./(2*N.pi)**(NT/2.)))
-    Log_Likelihood -= 0.5*log_det_K
+    log_likelihood += np.log((1./(2*np.pi)**(NT/2.)))
+    log_likelihood -= 0.5*log_det_kernel_matrix
 
-    return Log_Likelihood
+    return log_likelihood
 
 
 class Gaussian_process:
@@ -102,7 +102,7 @@ class Gaussian_process:
 
         gp = Gaussian_process(y,y_err,Time,Time_mean,Mean_Y)
         gp.find_hyperparameters(sigma_guess=0.5,l_guess=8.)
-        gp.get_prediction(new_binning=N.linspace(-12,42,19))
+        gp.get_prediction(new_binning=np.linspace(-12,42,19))
 
         output :
 
@@ -135,7 +135,7 @@ class Gaussian_process:
             self.compute_HT_matrix = compute_ht
             self.interpolate_mean = interpolate_mean
             sigma,L = init_hyperparam(Time,y)
-            self.hyperparameters = N.array([sigma, L])
+            self.hyperparameters = np.array([sigma, L])
 
         if kernel == 'RBF2D':
             from cosmogp import rbf_kernel_2d as kernel
@@ -147,7 +147,7 @@ class Gaussian_process:
             self.compute_HT_matrix = compute_ht
             self.interpolate_mean = interpolate_mean
             sigma,L = init_hyperparam(Time,y)
-            self.hyperparameters = N.array([sigma, L, L, 0.])
+            self.hyperparameters = np.array([sigma, L, L, 0.])
 
         self.y = y
         self.N_sn = len(y)
@@ -156,22 +156,22 @@ class Gaussian_process:
 
         self.SUBSTRACT_MEAN = False
         self.CONTEUR_MEAN = 0
-        self.diff = N.zeros(self.N_sn)
+        self.diff = np.zeros(self.N_sn)
 
         if y_err is not None:
             self.y_err = y_err
         else:
             if len(self.y) == 1:
-                self.y_err = [N.zeros(len(self.y[0]))]
+                self.y_err = [np.zeros(len(self.y[0]))]
             else:
                 self.y_err = []
                 for i in range(len(self.y)):
-                    self.y_err.append(N.zeros_like(self.y[i]))
+                    self.y_err.append(np.zeros_like(self.y[i]))
 
         if Mean_Y is not None:
             self.Mean_Y = Mean_Y
         else:
-            self.Mean_Y = N.zeros_like(self.y[0])
+            self.Mean_Y = np.zeros_like(self.y[0])
 
         if Time_mean is not None:
             self.Time_mean = Time_mean
@@ -198,19 +198,19 @@ class Gaussian_process:
             MEAN_Y = self.interpolate_mean(self.Time_mean, self.Mean_Y, self.Time[sn])
             
             if diff is None:
-                self.Mean_Y_in_BINNING_Y.append(MEAN_Y + N.mean(self.y[sn] - MEAN_Y))
-                self.y[sn] -= (MEAN_Y + N.mean(self.y[sn] - MEAN_Y))
+                self.Mean_Y_in_BINNING_Y.append(MEAN_Y + np.mean(self.y[sn] - MEAN_Y))
+                self.y[sn] -= (MEAN_Y + np.mean(self.y[sn] - MEAN_Y))
             else:
                 self.diff = diff
                 self.Mean_Y_in_BINNING_Y.append(MEAN_Y + diff[sn])
                 self.y[sn] -= (MEAN_Y + diff[sn])
 
-        self.Mean_Y=N.zeros(len(self.Time_mean))
+        self.Mean_Y=np.zeros(len(self.Time_mean))
 
 
-    def compute_Log_Likelihood(self, Hyperparameter, svd_log=True):
+    def compute_log_likelihood(self, Hyperparameter, svd_log=True):
         """
-        Function to compute the Log likelihood.
+        Function to compute the log likelihood.
         compute the global likelihood for all your data
         for a set of hyperparameters
         """
@@ -222,15 +222,15 @@ class Gaussian_process:
             Nugget = 0
             hyperparameter = Hyperparameter
 
-        Log_Likelihood=0
+        log_likelihood = 0
 
         for sn in range(self.N_sn):
             Mean_Y = self.interpolate_mean(self.Time_mean, self.Mean_Y, self.Time[sn])
-            Log_Likelihood += Log_Likelihood_GP(self.y[sn], self.y_err[sn], Mean_Y,
+            log_likelihood += log_likelihood_gp(self.y[sn], self.y_err[sn], Mean_Y,
                                                 self.Time[sn], self.kernel,
                                                 hyperparameter, Nugget, SVD=svd_log)
 
-        self.Log_Likelihood=Log_Likelihood
+        self.log_likelihood = log_likelihood
 
 
     def find_hyperparameters(self, hyperparameter_guess=None, nugget=False, SVD=True):
@@ -243,15 +243,15 @@ class Gaussian_process:
             assert len(self.hyperparameters) == len(hyperparameter_guess), 'should be same len'
             self.hyperparameters = hyperparameter_guess
 
-        def _compute_Log_Likelihood(Hyper, svd_log=SVD):
+        def _compute_log_likelihood(Hyper, svd_log=SVD):
             """
             Likelihood computation.
             Used for minimization
             """
 
-            self.compute_Log_Likelihood(Hyper, svd_log=svd_log)
+            self.compute_log_likelihood(Hyper, svd_log=svd_log)
 
-            return -self.Log_Likelihood[0]
+            return -self.log_likelihood[0]
 
         initial_guess = []
 
@@ -264,26 +264,26 @@ class Gaussian_process:
         else:
             self.fit_nugget = False
 
-        hyperparameters = fmin(_compute_Log_Likelihood, initial_guess, disp=False)
+        hyperparameters = fmin(_compute_log_likelihood, initial_guess, disp=False)
 
         for i in range(len(self.hyperparameters)):
-                self.hyperparameters[i] = N.sqrt(hyperparameters[i]**2)
+                self.hyperparameters[i] = np.sqrt(hyperparameters[i]**2)
 
         if self.fit_nugget:
-            self.nugget = N.sqrt(hyperparameters[-1]**2)
+            self.nugget = np.sqrt(hyperparameters[-1]**2)
 
 
-    def compute_covariance_matrix_K(self):
+    def compute_kernel_matrix(self):
         """
         Compute kernel.
         Compute the kernel function 
         """
 
-        self.K = []
+        self.kernel_matrix = []
 
         for sn in range(self.N_sn):
 
-            self.K.append(self.kernel(self.Time[sn], self.hyperparameters,
+            self.kernel_matrix.append(self.kernel(self.Time[sn], self.hyperparameters,
                                       self.nugget, y_err=self.y_err[sn]))
 
             
@@ -313,7 +313,7 @@ class Gaussian_process:
             self.as_the_same_time = False
             self.new_binning = new_binning
             
-        self.compute_covariance_matrix_K()
+        self.compute_kernel_matrix()
         self.HT = self.compute_HT_matrix(self.new_binning, self.Time,
                                          self.hyperparameters,
                                          as_the_same_grid=self.as_the_same_time)
@@ -322,33 +322,33 @@ class Gaussian_process:
         for i in range(self.N_sn):
 
             if not self.as_the_same_time:
-                self.Prediction.append(N.zeros(len(self.new_binning)))
+                self.Prediction.append(np.zeros(len(self.new_binning)))
             else:
-                self.Prediction.append(N.zeros(len(self.new_binning[i])))
+                self.Prediction.append(np.zeros(len(self.new_binning[i])))
 
         if not self.as_the_same_time:
             self.New_mean = self.interpolate_mean(self.Time_mean, self.Mean_Y,
                                                   self.new_binning)
 
-        self.inv_K = []
+        self.inv_kernel_matrix = []
 
         for sn in range(self.N_sn):
             
             if self.as_the_same_time:
                 self.New_mean = self.interpolate_mean(self.Time_mean,self.Mean_Y,self.new_binning[sn])
 
-            self.inv_K.append(N.zeros((len(self.Time[sn]), len(self.Time[sn]))))
+            self.inv_kernel_matrix.append(np.zeros((len(self.Time[sn]), len(self.Time[sn]))))
             Mean_Y = self.interpolate_mean(self.Time_mean, self.Mean_Y, self.Time[sn])
             Y_ket = (self.y[sn] - Mean_Y).reshape(len(self.y[sn]), 1)
 
-            if SVD: #SVD deconposition for K matrix
-                inv_K = svd(self.K[sn])
+            if SVD: #SVD deconposition for kernel_matrix matrix
+                inv_kernel_matrix = svd(self.kernel_matrix[sn])
             else: #choleski decomposition
-                inv_K = chol(self.K[sn])
+                inv_kernel_matrix = chol(self.kernel_matrix[sn])
 
-            self.inv_K[sn] = inv_K
+            self.inv_kernel_matrix[sn] = inv_kernel_matrix
             
-            self.Prediction[sn] += (N.dot(self.HT[sn],N.dot(inv_K,Y_ket))).T[0]
+            self.Prediction[sn] += (np.dot(self.HT[sn],np.dot(inv_kernel_matrix,Y_ket))).T[0]
             self.Prediction[sn] += self.New_mean
 
         if COV:
@@ -383,7 +383,7 @@ class Gaussian_process:
 
         for sn in range(self.N_sn):
 
-            self.covariance_matrix.append(-N.dot(self.HT[sn], N.dot(self.inv_K[sn], self.HT[sn].T)))
+            self.covariance_matrix.append(-np.dot(self.HT[sn], np.dot(self.inv_kernel_matrix[sn], self.HT[sn].T)))
             
             if self.as_the_same_time:
                 self.covariance_matrix[sn] += self.kernel(self.new_binning[sn],
@@ -399,7 +399,7 @@ class Gaussian_process:
         Plot result for a given data.
         """
 
-        from matplotlib import pyplot as P
+        from matplotlib import pyplot as plt
         import matplotlib.gridspec as gridspec
 
         if not self.as_the_same_time:
@@ -407,54 +407,66 @@ class Gaussian_process:
         else:
             Time_predict = self.new_binning[sn]
 
-        P.figure(figsize=(8,8))
+        plt.figure(figsize=(8,8))
 
         gs = gridspec.GridSpec(2, 1,height_ratios=[2,1])
-        P.subplots_adjust(hspace = 0.01)
+        plt.subplots_adjust(hspace = 0.01)
 
-        P.subplot(gs[0])
-        CST_top = N.mean(self.Prediction[sn])
+        plt.subplot(gs[0])
+        CST_top = np.mean(self.Prediction[sn])
 
-        Y_err = N.sqrt(N.diag(self.covariance_matrix[sn]))
-        P.scatter(self.Time[sn], self.y[sn]-CST_top, c='r', label='Data')
-        P.plot(Time_predict, self.Prediction[sn]-CST_top,'b',label='Prediction')
+        Y_err = np.sqrt(np.diag(self.covariance_matrix[sn]))
+        plt.scatter(self.Time[sn], self.y[sn]-CST_top, c='r', label='Data')
+        plt.plot(Time_predict, self.Prediction[sn]-CST_top,'b',
+                 label='Prediction')
 
         if Error:
-            P.errorbar(self.Time[sn], self.y[sn]-CST_top, linestyle='',
-                       yerr=self.y_err[sn], ecolor='red', alpha=0.9, marker='.', zorder=0)
-            P.fill_between(Time_predict, self.Prediction[sn] - CST_top - Y_err,
-                           self.Prediction[sn] - CST_top + Y_err, color='b', alpha=0.7)
+            plt.errorbar(self.Time[sn], self.y[sn]-CST_top, linestyle='',
+                         yerr=self.y_err[sn], ecolor='red', alpha=0.9,
+                         marker='.', zorder=0)
+            plt.fill_between(Time_predict,
+                             self.Prediction[sn] - CST_top - Y_err,
+                             self.Prediction[sn] - CST_top + Y_err,
+                             color='b', alpha=0.7)
 
-        P.ylabel(y1_label)
+        plt.ylabel(y1_label)
         if TITLE:
-            P.title(TITLE)
+            plt.title(TITLE)
 
-        P.legend()
-        P.xticks([],[])
-        P.ylim(N.min(self.Prediction[sn]-CST_top)-1,N.max(self.Prediction[sn]-CST_top)+1)
-        P.xlim(N.min(self.Time[sn]),N.max(self.Time[sn]))
-        P.gca().invert_yaxis()
+        plt.legend()
+        plt.xticks([],[])
+        plt.ylim(np.min(self.Prediction[sn] - CST_top) - 1,
+                 np.max(self.Prediction[sn] - CST_top) + 1)
+        plt.xlim(np.min(self.Time[sn]), np.max(self.Time[sn]))
+        plt.gca().invert_yaxis()
 
-        P.subplot(gs[1])
+        plt.subplot(gs[1])
 
-        Mean_Y = self.interpolate_mean(self.Time_mean, self.Mean_Y, self.Time[sn])
-        Mean_Y_new_binning = self.interpolate_mean(self.Time_mean, self.Mean_Y, Time_predict)
+        Mean_Y = self.interpolate_mean(self.Time_mean,
+                                       self.Mean_Y, self.Time[sn])
+        Mean_Y_new_binning = self.interpolate_mean(self.Time_mean,
+                                                   self.Mean_Y, Time_predict)
         CST_bottom = self.diff[sn]
 
-        P.scatter(self.Time[sn], self.y[sn] - Mean_Y - CST_bottom, c='r')
-        P.plot(Time_predict,self.Prediction[sn] - Mean_Y_new_binning - CST_bottom, 'b')
+        plt.scatter(self.Time[sn], self.y[sn] - Mean_Y - CST_bottom, c='r')
+        plt.plot(Time_predict,
+                 self.Prediction[sn] - Mean_Y_new_binning - CST_bottom, 'b')
         if Error:
-            P.errorbar(self.Time[sn], self.y[sn] - Mean_Y - CST_bottom, linestyle='',
-                       yerr=self.y_err[sn], ecolor='red', alpha=0.9, marker='.', zorder=0)
-            P.fill_between(Time_predict, self.Prediction[sn] - Mean_Y_new_binning - Y_err - CST_bottom,
-                           self.Prediction[sn] - Mean_Y_new_binning + Y_err - CST_bottom, color='b', alpha=0.7)
+            plt.errorbar(self.Time[sn], self.y[sn] - Mean_Y - CST_bottom,
+                         linestyle='', yerr=self.y_err[sn], ecolor='red',
+                         alpha=0.9, marker='.', zorder=0)
+            plt.fill_between(Time_predict,
+                             self.Prediction[sn] - Mean_Y_new_binning - Y_err - CST_bottom,
+                             self.Prediction[sn] - Mean_Y_new_binning + Y_err - CST_bottom,
+                             color='b', alpha=0.7)
 
-        P.plot(Time_predict, N.zeros(len(self.Prediction[sn])), 'k')
+        plt.plot(Time_predict, np.zeros(len(self.Prediction[sn])), 'k')
 
-        P.xlim(N.min(self.Time[sn]),N.max(self.Time[sn]))
-        P.ylim(N.min(self.Prediction[sn]-CST_bottom-Mean_Y_new_binning)-0.5,N.max(self.Prediction[sn]-CST_bottom-Mean_Y_new_binning)+0.5)
-        P.ylabel(y2_label)
-        P.xlabel(x_label)
+        plt.xlim(np.min(self.Time[sn]), np.max(self.Time[sn]))
+        plt.ylim(np.min(self.Prediction[sn] - CST_bottom - Mean_Y_new_binning) - 0.5,
+                 np.max(self.Prediction[sn] - CST_bottom - Mean_Y_new_binning) + 0.5)
+        plt.ylabel(y2_label)
+        plt.xlabel(x_label)
 
         
 class gaussian_process(Gaussian_process):
