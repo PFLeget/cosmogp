@@ -39,7 +39,7 @@ class build_pull:
         self.pull_std = None
 
 
-    def compute_pull(self, diff=None, svd=True,
+    def compute_pull(self, diff=None, svd_method=True,
                      substract_mean=False):
         """
         Function that compute the pull.
@@ -77,7 +77,7 @@ class build_pull:
 
                 gpp.hyperparameters = self.hyperparameters
                 gpp.nugget = self.nugget
-                gpp.get_prediction(new_binning=self.x[sn], SVD=svd)
+                gpp.get_prediction(new_binning=self.x[sn], svd_method=svd_method)
 
                 pred[t] = gpp.Prediction[0][t]
                 pred_var[t] = abs(gpp.covariance_matrix[0][t, t])

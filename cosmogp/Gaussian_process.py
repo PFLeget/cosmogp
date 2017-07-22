@@ -9,29 +9,29 @@ try: from svd_tmv import computeLDLInverse as chol
 except: from cosmogp import cholesky_inverse as chol
 
 
-def log_likelihood_gp(y, y_err, Mean_Y, Time, kernel,
-                      hyperparameter, nugget,SVD=True):
+def log_likelihood_gp(y, x_axis, kernel, hyperparameter, nugget,
+                      y_err=None, y_mean=None, svd_method=True):
     """
     Log likehood to maximize in order to find hyperparameter.
 
     The key point is that all matrix inversion are
-    done by SVD decomposition + (if needed) pseudo-inverse.
+    done by svd decomposition + (if needed) pseudo-inverse.
     Slow but robust
 
     y : 1D numpy array or 1D list. Observed data at the
-    observed grid (Time). For SNIa it would be light curve
+    observed grid (x_axis). For SNIa it would be light curve
+
+    x_axis : 1D numpy array or 1D list. Grid of observation.
+    For SNIa, it would be light curves phases.
 
     y_err : 1D numpy array or 1D list. Observed error from
-    data on the observed grid (Time). For SNIa it would be
+    data on the observed grid (x_axis). For SNIa it would be
     error on data light curve points.
 
     Mean_Y : 1D numpy array or 1D list. Average function
     that train Gaussian Process. Should be on the same grid 
     as observation (y). For SNIa it would be average light
     curve.
-
-    Time : 1D numpy array or 1D list. Grid of observation.
-    For SNIa, it would be light curves phases.
 
     sigma : float. Kernel amplitude hyperparameter.
     It explain the standard deviation from the mean function.
@@ -46,20 +46,26 @@ def log_likelihood_gp(y, y_err, Mean_Y, Time, kernel,
 
     output : float. log_likelihood
     """
+    if y_mean is None:
+        y_mean = np.zeros_like(y)
 
-    NT = len(Time)
-    kernel_matrix = kernel(Time,hyperparameter,nugget,y_err=y_err)
-    y_ket = y.reshape(len(y),1)
-    Mean_Y_ket = Mean_Y.reshape(len(Mean_Y),1)
+    number_points = len(x_axis)
+    kernel_matrix = kernel(x_axis, hyperparameter, nugget, y_err=y_err)
+    y_ket = y.reshape(len(y), 1)
+    y_mean_colomn = y_mean.reshape(len(y_mean), 1)
 
-    if SVD : #svd decomposition
-        inv_kernel_matrix,log_det_kernel_matrix = svd(kernel_matrix,return_logdet=True)
+    if svd_method : #svd decomposition
+        inv_kernel_matrix, log_det_kernel_matrix = svd(kernel_matrix,
+                                                       return_logdet=True)
     else : #cholesky decomposition
-        inv_kernel_matrix,log_det_kernel_matrix = chol(kernel_matrix,return_logdet=True)
+        inv_kernel_matrix, log_det_kernel_matrix = chol(kernel_matrix,
+                                                        return_logdet=True)
 
-    log_likelihood = (-0.5*(np.dot((y-Mean_Y),np.dot(inv_kernel_matrix,(y_ket-Mean_Y_ket)))))
+    log_likelihood = (-0.5 * (np.dot((y - y_mean),
+                                     np.dot(inv_kernel_matrix,
+                                            (y_ket - y_mean_colomn)))))
 
-    log_likelihood += np.log((1./(2*np.pi)**(NT/2.)))
+    log_likelihood += np.log((1./(2*np.pi)**(number_points/2.)))
     log_likelihood -= 0.5*log_det_kernel_matrix
 
     return log_likelihood
@@ -208,7 +214,7 @@ class Gaussian_process:
         self.Mean_Y=np.zeros(len(self.Time_mean))
 
 
-    def compute_log_likelihood(self, Hyperparameter, svd_log=True):
+    def compute_log_likelihood(self, Hyperparameter, svd_method=True):
         """
         Function to compute the log likelihood.
         compute the global likelihood for all your data
@@ -226,14 +232,15 @@ class Gaussian_process:
 
         for sn in range(self.N_sn):
             Mean_Y = self.interpolate_mean(self.Time_mean, self.Mean_Y, self.Time[sn])
-            log_likelihood += log_likelihood_gp(self.y[sn], self.y_err[sn], Mean_Y,
-                                                self.Time[sn], self.kernel,
-                                                hyperparameter, Nugget, SVD=svd_log)
+
+            log_likelihood += log_likelihood_gp(self.y[sn], self.Time[sn], self.kernel,
+                                                hyperparameter, Nugget, y_err=self.y_err[sn],
+                                                y_mean=Mean_Y, svd_method=svd_method)
 
         self.log_likelihood = log_likelihood
 
 
-    def find_hyperparameters(self, hyperparameter_guess=None, nugget=False, SVD=True):
+    def find_hyperparameters(self, hyperparameter_guess=None, nugget=False, svd_method=True):
         """
         Search hyperparameter using a maximum likelihood.
         Maximize with optimize.fmin for the moment
@@ -243,13 +250,13 @@ class Gaussian_process:
             assert len(self.hyperparameters) == len(hyperparameter_guess), 'should be same len'
             self.hyperparameters = hyperparameter_guess
 
-        def _compute_log_likelihood(Hyper, svd_log=SVD):
+        def _compute_log_likelihood(Hyper, svd_method=svd_method):
             """
             Likelihood computation.
             Used for minimization
             """
 
-            self.compute_log_likelihood(Hyper, svd_log=svd_log)
+            self.compute_log_likelihood(Hyper, svd_method=svd_method)
 
             return -self.log_likelihood[0]
 
@@ -287,7 +294,7 @@ class Gaussian_process:
                                       self.nugget, y_err=self.y_err[sn]))
 
             
-    def get_prediction(self, new_binning=None, COV=True, SVD=True):
+    def get_prediction(self, new_binning=None, COV=True, svd_method=True):
         """
         Compute your interpolation.
 
@@ -341,7 +348,7 @@ class Gaussian_process:
             Mean_Y = self.interpolate_mean(self.Time_mean, self.Mean_Y, self.Time[sn])
             Y_ket = (self.y[sn] - Mean_Y).reshape(len(self.y[sn]), 1)
 
-            if SVD: #SVD deconposition for kernel_matrix matrix
+            if svd_method: #SVD deconposition for kernel_matrix matrix
                 inv_kernel_matrix = svd(self.kernel_matrix[sn])
             else: #choleski decomposition
                 inv_kernel_matrix = chol(self.kernel_matrix[sn])
