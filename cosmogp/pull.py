@@ -67,13 +67,8 @@ class build_pull:
                                                y_err=yerr[filter_pull],
                                                Mean_Y=self.y_mean,
                                                Time_mean=self.x_axis_mean,
-                                               kernel=self.kernel)
-
-                if diff or substract_mean:
-                    if diff is None:
-                        gpp.substract_Mean(diff=None)
-                    else:
-                        gpp.substract_Mean(diff=[diff[sn]])
+                                               kernel=self.kernel,diff=diff,
+                                               substract_mean=substract_mean)
 
                 gpp.hyperparameters = self.hyperparameters
                 gpp.nugget = self.nugget
