@@ -62,12 +62,16 @@ class build_pull:
                 else:
                     yerr = self.y_err[sn]
 
+                if self.y_mean is None and substract_mean:
+                    self.y_mean = np.ones_like(self.y[sn]) * np.mean(self.y[sn])
+                    self.x_axis_mean = self.x[sn] 
+                    
                 gpp = cosmogp.gaussian_process(self.y[sn][filter_pull],
                                                self.x[sn][filter_pull],
                                                y_err=yerr[filter_pull],
                                                Mean_Y=self.y_mean,
                                                Time_mean=self.x_axis_mean,
-                                               kernel=self.kernel,diff=diff,
+                                               kernel=self.kernel, diff=diff,
                                                substract_mean=substract_mean)
 
                 gpp.hyperparameters = self.hyperparameters
@@ -76,7 +80,6 @@ class build_pull:
 
                 pred[t] = gpp.Prediction[0][t]
                 pred_var[t] = abs(gpp.covariance_matrix[0][t, t])
-
 
             pull = (pred - self.y[sn])
             pull /= np.sqrt(yerr**2 + pred_var + self.nugget**2)

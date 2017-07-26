@@ -1,8 +1,9 @@
+from scipy import linalg
 import numpy as np
 
 def svd_inverse(matrix,return_logdet=False):
 
-    U,s,V = np.linalg.svd(matrix)
+    U,s,V = linalg.svd(matrix)
     Filtre = (s>10**-15)
     if np.sum(Filtre)!=len(Filtre):
         print 'Pseudo-inverse decomposition :', len(Filtre)-np.sum(Filtre)
@@ -19,9 +20,9 @@ def svd_inverse(matrix,return_logdet=False):
     
 def cholesky_inverse(matrix,return_logdet=False):
 
-    L = np.linalg.cholesky(matrix)
-    inv_L = np.linalg.inv(L)
-    inv_matrix = np.dot(inv_L.T,inv_L)
+    L = linalg.cholesky(matrix, lower=True)
+    inv_L = linalg.inv(L)
+    inv_matrix = np.dot(inv_L.T, inv_L)
 
     if return_logdet:
         log_det=np.sum(2.*np.log(np.diag(L)))

@@ -51,9 +51,10 @@ def log_likelihood_gp(y, x_axis, kernel, hyperparameter, nugget,
         y_mean = np.zeros_like(y)
 
     number_points = len(x_axis)
-    kernel_matrix = kernel(x_axis, hyperparameter, nugget, y_err=y_err)
+    kernel_matrix = kernel(x_axis, hyperparameter, nugget=nugget, y_err=y_err)
     y_ket = y.reshape(len(y), 1)
-    y_mean_colomn = y_mean.reshape(len(y_mean), 1)
+    y_mean_colomn = np.ones(len(y))*y_mean
+    y_mean_colomn = y_mean_colomn.reshape(len(y_mean_colomn), 1)
 
     if svd_method:  #svd decomposition
         inv_kernel_matrix, log_det_kernel_matrix = svd(kernel_matrix,
@@ -136,21 +137,17 @@ class Gaussian_process:
 
         if kernel == 'RBF1D':
             from cosmogp import rbf_kernel_1d as kernel
-            from cosmogp import compute_rbf_1d_ht_matrix as compute_ht
             from cosmogp import init_rbf as init_hyperparam
 
             self.kernel = kernel
-            self.compute_HT_matrix = compute_ht
             sigma, L = init_hyperparam(Time,y)
             self.hyperparameters = np.array([sigma, L])
 
         if kernel == 'RBF2D':
             from cosmogp import rbf_kernel_2d as kernel
-            from cosmogp import interpolate_mean_2d as interpolate_mean
             from cosmogp import init_rbf as init_hyperparam
 
             self.kernel = kernel
-            self.compute_HT_matrix = compute_ht
             sigma, L = init_hyperparam(Time,y)
             self.hyperparameters = np.array([sigma, L, L, 0.])
 
@@ -171,12 +168,14 @@ class Gaussian_process:
 
         self.Mean_Y = Mean_Y
         self.Time_mean = Time_mean
+        self.substract_mean = substract_mean
+        
         if diff is None:
             self.diff=np.array([None]*self.N_sn)
         else:
             self.diff = diff
 
-        if substract_mean or Mean_Y is not None:
+        if self.substract_mean or self.Mean_Y is not None:
             self.y0 = []
             for i in range(self.N_sn):
                 self.y0.append(return_mean(self.y[i], self.Time[i], mean_y=self.Mean_Y,
@@ -263,7 +262,7 @@ class Gaussian_process:
         for sn in range(self.N_sn):
 
             self.kernel_matrix.append(self.kernel(self.Time[sn], self.hyperparameters,
-                                      self.nugget, y_err=self.y_err[sn]))
+                                      nugget=self.nugget, y_err=self.y_err[sn]))
 
 
     def get_prediction(self, new_binning=None, COV=True, svd_method=True):
@@ -288,9 +287,7 @@ class Gaussian_process:
             self.new_binning = new_binning
 
         self.compute_kernel_matrix()
-        self.HT = self.compute_HT_matrix(self.new_binning, self.Time,
-                                         self.hyperparameters,
-                                         as_the_same_grid=self.as_the_same_time)
+
         self.Prediction = []
 
         for i in range(self.N_sn):
@@ -304,11 +301,15 @@ class Gaussian_process:
 
         for sn in range(self.N_sn):
 
-            if self.as_the_same_time:
-                new_y0 = self.y0[sn]
+            if self.substract_mean or self.Mean_Y is not None:
+            
+                if self.as_the_same_time:
+                    new_y0 = self.y0[sn]
+                else:
+                    new_y0 = return_mean(self.y[sn], self.Time[sn], new_x=self.new_binning,
+                                         mean_y=self.Mean_Y, mean_xaxis=self.Time_mean, diff=self.diff[sn])
             else:
-                new_y0 = return_mean(self.y[sn], self.Time[sn], new_x=self.new_binning,
-                                     mean_y=self.Mean_Y, mean_xaxis=self.Time_mean, diff=self.diff[sn])
+                new_y0 = 0.
 
             self.inv_kernel_matrix.append(np.zeros((len(self.Time[sn]), len(self.Time[sn]))))
             Y_ket = (self.y[sn] - self.y0[sn]).reshape(len(self.y[sn]), 1)
@@ -320,7 +321,14 @@ class Gaussian_process:
 
             self.inv_kernel_matrix[sn] = inv_kernel_matrix
 
-            self.Prediction[sn] += (np.dot(self.HT[sn],np.dot(inv_kernel_matrix,Y_ket))).T[0]
+            if not self.as_the_same_time:
+                new_grid = self.new_binning
+            else:
+                new_grid = self.new_binning[i]
+            
+            H = self.kernel(self.Time[sn], self.hyperparameters, new_x=new_grid)
+
+            self.Prediction[sn] += (np.dot(H,np.dot(inv_kernel_matrix,Y_ket))).T[0]
             self.Prediction[sn] += new_y0
 
         if COV:
@@ -337,14 +345,18 @@ class Gaussian_process:
 
         for sn in range(self.N_sn):
 
-            self.covariance_matrix.append(-np.dot(self.HT[sn], np.dot(self.inv_kernel_matrix[sn], self.HT[sn].T)))
-
             if self.as_the_same_time:
-                self.covariance_matrix[sn] += self.kernel(self.new_binning[sn],
-                                                          self.hyperparameters, 0)
+                new_grid = self.new_binning[sn]
             else:
-                self.covariance_matrix[sn]+=self.kernel(self.new_binning,
-                                                        self.hyperparameters, 0)
+                new_grid = self.new_binning
+
+            H = self.kernel(self.Time[sn], self.hyperparameters, new_x=new_grid)
+            K = self.kernel(new_grid, self.hyperparameters)
+            
+            self.covariance_matrix.append(-np.dot(H, np.dot(self.inv_kernel_matrix[sn], H.T)))
+
+            self.covariance_matrix[sn] += K
+
 
 
 class gaussian_process(Gaussian_process):

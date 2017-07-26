@@ -1,11 +1,13 @@
 """compute mean and interpolate mean for GP."""
 
 import scipy.interpolate as inter
-import numpy as np 
+import numpy as np
 
 
 def interpolate_mean_1d(old_binning, mean_function, new_binning):
     """
+    Interpoalte 1d function.
+
     Function to interpolate 1D mean function on the new grid
     Interpolation is done using cubic spline from scipy
 
@@ -23,7 +25,6 @@ def interpolate_mean_1d(old_binning, mean_function, new_binning):
 
     output : mean_interpolate, Mean function on the new grid (New_binning)
     """
-
     cubic_spline = inter.InterpolatedUnivariateSpline(old_binning,
                                                       mean_function)
 
@@ -34,6 +35,8 @@ def interpolate_mean_1d(old_binning, mean_function, new_binning):
 
 def interpolate_mean_2d(old_binning, mean_function, new_binning):
     """
+    Interpolate 2d function.
+
     Function to interpolate 2D mean function on the new grid
     Interpolation is done using cubic spline from scipy.
 
@@ -52,16 +55,14 @@ def interpolate_mean_2d(old_binning, mean_function, new_binning):
 
     output : mean_interpolate,  Mean function on the new grid (New_binning)
     """
-
-    tck = inter.bisplrep(old_binning[:,0], old_binning[:,1],
+    tck = inter.bisplrep(old_binning[:, 0], old_binning[:, 1],
                          mean_function, task=1)
 
     mean_interpolate = np.zeros(len(new_binning))
 
     for i in range(len(new_binning)):
-        
-        mean_interpolate[i] = inter.bisplev(new_binning[i,0],
-                                            new_binning[i,1], tck)
+        mean_interpolate[i] = inter.bisplev(new_binning[i, 0],
+                                            new_binning[i, 1], tck)
 
     return mean_interpolate
 
@@ -69,19 +70,18 @@ def interpolate_mean_2d(old_binning, mean_function, new_binning):
 def return_mean(y, x, new_x=None, mean_y=None, mean_xaxis=None, diff=None):
     """
     Substract the mean function.
+
     in order to avoid systematic difference between
     average function and the data
     """
-
     if mean_y is not None:
         assert mean_xaxis is not None, 'you should provide an x axis for the average'
-        assert len(mean_y) == len(mean_xaxis), 'mean_y and mean_xaxis should have the same len' 
-        
+        assert len(mean_y) == len(mean_xaxis), 'mean_y and mean_xaxis should have the same len'
+
         if type(x[0]) is np.float64:
             mean_y_shape = interpolate_mean_1d(mean_xaxis, mean_y, x)
         else:
             mean_y_shape = interpolate_mean_2d(mean_xaxis, mean_y, x)
-        
     else:
         mean_y_shape = 0
 
@@ -89,9 +89,8 @@ def return_mean(y, x, new_x=None, mean_y=None, mean_xaxis=None, diff=None):
         y0 = mean_y_shape + np.mean(y - mean_y_shape)
     else:
         y0 = mean_y_shape + diff
-        
+
     if new_x is not None:
-        
         if mean_y is not None:
             if type(x[0]) is np.float64:
                 new_y0 = interpolate_mean_1d(x, y0, new_x)
@@ -99,8 +98,8 @@ def return_mean(y, x, new_x=None, mean_y=None, mean_xaxis=None, diff=None):
                 new_y0 = interpolate_mean_2d(x, y0, new_x)
         else:
             new_y0 = y0
-            
+
         return new_y0
-    
+
     else:
         return y0

@@ -1,27 +1,28 @@
 """implementation of different kind of kernel."""
 
-import numpy as N
+import numpy as np
 
 def init_rbf(x,y):
-    
-    number_point = N.zeros(len(y))
-    L_min = N.zeros(len(y))
-    L_max = N.zeros(len(y))
-    sigma = N.zeros(len(y))
-    
+
+    number_point = np.zeros(len(y))
+    L_min = np.zeros(len(y))
+    L_max = np.zeros(len(y))
+    sigma = np.zeros(len(y))
+
     for i in range(len(y)):
-        L_min = N.min(x[i])
-        L_max = N.max(x[i])
+        L_min = np.min(x[i])
+        L_max = np.max(x[i])
         number_point[i] = len(x[i])
-        sigma = N.std(y[i])
-    
-    d = N.mean(N.sqrt((L_max-L_min)**2/number_point))
-    L = N.mean(L_max-L_min)
+        sigma = np.std(y[i])
 
-    return N.mean(sigma), N.mean([d,L])
-    
+    d = np.mean(np.sqrt((L_max-L_min)**2/number_point))
+    L = np.mean(L_max-L_min)
 
-def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
+    return np.mean(sigma), np.mean([d,L])
+
+
+def rbf_kernel_1d(x, hyperparameter, new_x=None,
+                  nugget=0., floor=0.00, y_err=None):
     """
     1D RBF kernel.
 
@@ -34,58 +35,49 @@ def rbf_kernel_1d(x, hyperparameter, nugget, floor=0.00, y_err=None):
     sigma -->  Kernel amplitude hyperparameter. 
     It explain the standard deviation from the mean function.
 
-    l --> Kernel correlation length hyperparameter. 
-    It explain at wich scale one data point afect the 
+    l --> Kernel correlation length hyperparameter.
+    It explain at wich scale one data point afect the
     position of an other.
 
-
-    
     x : 1D numpy array or 1D list. Grid of observation.
-    For SNIa it would be observation phases. 
+    For SNIa it would be observation phases.
 
-    hyperparameter : 1D numpy array or 1D list. 
+    hyperparameter : 1D numpy array or 1D list.
 
-    nugget : float. Diagonal dispertion that you can add in 
-    order to explain intrinsic variability not discribe by 
+    nugget : float. Diagonal dispertion that you can add in
+    order to explain intrinsic variability not discribe by
     the RBF kernel.
 
-    floor : float. Diagonal error that you can add to your 
-    RBF Kernel if you know the value of your intrinsic dispersion. 
+    floor : float. Diagonal error that you can add to your
+    RBF Kernel if you know the value of your intrinsic dispersion.
 
-    y_err : 1D numpy array or 1D list. Error from data 
-    observation. For SNIa, it would be the error on the 
+    y_err : 1D numpy array or 1D list. Error from data
+    observation. For SNIa, it would be the error on the
     observed flux/magnitude.
-
 
     output : Cov. 2D numpy array, shape = (len(x),len(x))
     """
     if y_err is None:
-        y_err = N.zeros_like(x)
-        
-    A = x-x[:,None]
-    Cov = (hyperparameter[0]**2)*N.exp(-0.5*((A*A)/(hyperparameter[1]**2)))
-    Cov += (N.eye(len(y_err))*(y_err**2+floor**2+nugget**2))
-        
-    return Cov
+        y_err = np.zeros_like(x)
 
+    if new_x is None:
+        x2 = x
+        add_error = True 
+    else:
+        x2 = new_x
+        add_error = False
 
-def compute_rbf_1d_ht_matrix(new_x,old_x,hyperparameters,as_the_same_grid=False,SPEED=False):
+    A = x - x2[:,None]
+    cov = (hyperparameter[0]**2) * np.exp(-0.5 * ((A * A) / (hyperparameter[1]**2)))
     
-    HT=[]
+    if add_error:
+        cov += (np.eye(len(y_err)) * (y_err**2 + floor**2 + nugget**2))
 
-    for sn in range(len(old_x)): 
-        if as_the_same_grid:
-            New_binning=new_x[sn]
-        else:
-            New_binning=new_x
-            
-        A = old_x[sn]-New_binning[:,None]
-        HT.append((hyperparameters[0]**2)*N.exp(-0.5*((A*A)/(hyperparameters[1]**2))))
-
-    return HT
+    return cov
 
 
-def rbf_kernel_2d(x,hyperparameter,nugget,floor=0.00,y_err=None,SPEED=False):
+def rbf_kernel_2d(x, hyperparameter, new_x=None,
+                  nugget=0., floor=0.00, y_err=None):
     """
     2D RBF kernel.
 
@@ -124,43 +116,29 @@ def rbf_kernel_2d(x,hyperparameter,nugget,floor=0.00,y_err=None,SPEED=False):
     output : Cov. 2D numpy array, shape = (len(x),len(x))
     """
     if y_err is None:
-        y_err = N.zeros(len(x))
+        y_err = np.zeros(len(x))
 
-    Inv_L = N.array(([hyperparameter[2]**2,-hyperparameter[3]],
+    if new_x is None:
+        x2 = x
+        add_error = True
+    else:
+        x2 = new_x
+        add_error = False
+
+    inv_l = np.array(([hyperparameter[2]**2,-hyperparameter[3]],
                      [-hyperparameter[3],hyperparameter[1]**2]))
     
-    Inv_L *= 1./(((hyperparameter[1]**2)*(hyperparameter[2]**2))-hyperparameter[3]**2)
+    inv_l *= 1./(((hyperparameter[1]**2)*(hyperparameter[2]**2))-hyperparameter[3]**2)
     
-    A = (x[:,0]-x[:,0][:,None])
-    B = (x[:,1]-x[:,1][:,None])
+    A = (x[:,0]-x2[:,0][:,None])
+    B = (x[:,1]-x2[:,1][:,None])
 
-    Cov = (hyperparameter[0]**2)*N.exp(-0.5*(A*A*Inv_L[0,0] + 2.*A*B*Inv_L[0,1] + B*B*Inv_L[1,1]))
-    Cov += (N.eye(len(y_err))*(y_err**2+floor**2+nugget**2))
+    cov = (hyperparameter[0]**2)*np.exp(-0.5*(A * A * inv_l[0,0] + 2. * A * B * inv_l[0,1] + B * B * inv_l[1,1]))
+
+    if add_error:
+        cov += (np.eye(len(y_err))*(y_err**2+floor**2+nugget**2))
         
-    return Cov
-
-
-def compute_rbf_2d_ht_matrix(new_x,old_x,hyperparameters,as_the_same_grid=False,SPEED=False):
-
-    HT = []
-    
-    Inv_L = N.array(([hyperparameters[2]**2,-hyperparameters[3]],
-                     [-hyperparameters[3],hyperparameters[1]**2]))
-    
-    Inv_L *= 1./(((hyperparameters[1]**2)*(hyperparameters[2]**2))-hyperparameters[3]**2)
-    
-    for sn in range(len(old_x)): 
-        if as_the_same_grid:
-            New_binning = new_x[sn]
-        else:
-            New_binning = new_x
-        
-        A = (old_x[sn][:,0]-New_binning[:,0][:,None])
-        B = (old_x[sn][:,1]-New_binning[:,1][:,None])
-
-        HT.append((hyperparameters[0]**2)*N.exp(-0.5*(A*A*Inv_L[0,0] + 2.*A*B*Inv_L[0,1] + B*B*Inv_L[1,1])))
-
-    return HT
+    return cov
 
 
 
