@@ -197,7 +197,7 @@ class Gaussian_process:
             Nugget = Hyperparameter[-1]
             hyperparameter = Hyperparameter[:-1]
         else:
-            Nugget = 0
+            Nugget = self.nugget
             hyperparameter = Hyperparameter
 
         log_likelihood = 0
