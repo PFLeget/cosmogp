@@ -310,7 +310,7 @@ class Gaussian_process:
                                          mean_y=self.Mean_Y, mean_xaxis=self.Time_mean, diff=self.diff[sn])
             else:
                 new_y0 = 0.
-
+            self.warning_pf = new_y0
             self.inv_kernel_matrix.append(np.zeros((len(self.Time[sn]), len(self.Time[sn]))))
             Y_ket = (self.y[sn] - self.y0[sn]).reshape(len(self.y[sn]), 1)
 

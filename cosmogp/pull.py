@@ -34,6 +34,7 @@ class build_pull:
         self._pull = []
         self.pull = []
         self.residual = []
+        self.prediction = []
 
         self.pull_average = None
         self.pull_std = None
@@ -52,15 +53,20 @@ class build_pull:
             pred = np.zeros(len(self.y[sn]))
             pred_var = np.zeros(len(self.y[sn]))
 
+            if self.y_err is None:
+                yerr = np.zeros_like(self.y[sn])
+            else:
+                yerr = self.y_err[sn]
+
+            if diff is None:
+                difff = None
+            else:
+                difff = [diff[sn]]
+
             for t in range(len(self.y[sn])):
 
                 filter_pull = np.array([True] * len(self.y[sn]))
                 filter_pull[t] = False
-
-                if self.y_err is None:
-                    yerr = np.zeros_like(self.y[sn])
-                else:
-                    yerr = self.y_err[sn]
 
                 if self.y_mean is None and substract_mean:
                     self.y_mean = np.ones_like(self.y[sn]) * np.mean(self.y[sn])
@@ -71,13 +77,15 @@ class build_pull:
                                                y_err=yerr[filter_pull],
                                                Mean_Y=self.y_mean,
                                                Time_mean=self.x_axis_mean,
-                                               kernel=self.kernel, diff=diff,
+                                               kernel=self.kernel, diff=difff,
                                                substract_mean=substract_mean)
 
                 gpp.hyperparameters = self.hyperparameters
                 gpp.nugget = self.nugget
                 gpp.get_prediction(new_binning=self.x[sn], svd_method=svd_method)
 
+                self.gpp=gpp
+                
                 pred[t] = gpp.Prediction[0][t]
                 pred_var[t] = abs(gpp.covariance_matrix[0][t, t])
 
@@ -85,7 +93,8 @@ class build_pull:
             pull /= np.sqrt(yerr**2 + pred_var + self.nugget**2)
             res = pred - self.y[sn]
             self._pull.append(pull)
-
+            self.prediction.append(pred)
+            
             for t in range(len(self.y[sn])):
                 self.pull.append(pull[t])
                 self.residual.append(res[t])

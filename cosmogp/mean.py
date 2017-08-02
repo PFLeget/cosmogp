@@ -93,13 +93,15 @@ def return_mean(y, x, new_x=None, mean_y=None, mean_xaxis=None, diff=None):
     if new_x is not None:
         if mean_y is not None:
             if type(x[0]) is np.float64:
-                new_y0 = interpolate_mean_1d(x, y0, new_x)
+                mean_y_shape = interpolate_mean_1d(mean_xaxis, mean_y, new_x)
             else:
-                new_y0 = interpolate_mean_2d(x, y0, new_x)
+                mean_y_shape = interpolate_mean_2d(mean_xaxis, mean_y, new_x)
+            if diff is None:
+                new_y0 = mean_y_shape + np.mean(y - mean_y_shape)
+            else:
+                new_y0 = mean_y_shape + diff
         else:
             new_y0 = y0
-
         return new_y0
-
     else:
         return y0

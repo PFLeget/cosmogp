@@ -46,7 +46,7 @@ def generate_data_test(number_of_data,number_of_point,
 def cosmogp_gp(x, y, y_err=None, xpredict=None, kernel='rbf1d',
                hyperparameter_default=None, number_point_pull = 10,
                search_hyperparameter=False,
-               substract_mean=False, svd=True):
+               substract_mean=False, svd=False):
     """
     cosmogp gaussian process.
     """
@@ -76,10 +76,12 @@ def cosmogp_gp(x, y, y_err=None, xpredict=None, kernel='rbf1d',
     if xpredict is None:
         xpredict = x
 
+    print 'I will do interpolation'
     gp.get_prediction(new_binning=xpredict,svd_method=svd)
     ynew = gp.Prediction[0]
     cov = gp.covariance_matrix[0]
     timeB = time.time()
+    print 'finish interpolation'
     
     time_excution = timeB-timeA
 
@@ -96,6 +98,8 @@ def cosmogp_gp(x, y, y_err=None, xpredict=None, kernel='rbf1d',
     stds = []
 
     conteur = 0
+
+
     
     for t in range(len(x)):
 
@@ -172,7 +176,7 @@ def george_gp(x, y, y_err=None, xpredict=None, kernel='rbf1d',
         if search_hyperparameter:
             gp = george.GP(kernel)
         else:
-            gp = george.GP(kernel, solver=george.HODLRSolver)
+            gp = george.GP(kernel)#, solver=george.HODLRSolver)
     gp.compute(x, y_err)
 
     if search_hyperparameter:
@@ -349,7 +353,10 @@ class test_gaussian_process:
         self.search_hyperparameter = search_hyperparameter
 
         if noise !=0.:
-            self.N = np.logspace(1.1,1.7,10).astype(int)
+            if self.search_hyperparameter:
+                self.N = np.logspace(1.1,1.7,10).astype(int)
+            else:
+                self.N = np.logspace(1.1,3,10).astype(int)
         else:
             self.N = np.linspace(5,20,10).astype(int)
         self.Number_data = Number_data
@@ -461,7 +468,7 @@ class test_gaussian_process:
                 hyp_george[j] = hyp
 
                 t += self.number_point_pull
- 
+                
             self.ynew_skl.append(ynew_skl)
             self.resids_skl.append(resids_skl)
             self.stds_skl.append(stds_skl)            
@@ -688,22 +695,22 @@ if __name__=='__main__':
 
     ##1d (squared exponential kernel) without noise, with free hyperparameter 
 
-    test_gp = test_gaussian_process(kernel='rbf1d',noise=0.0,
-                                    search_hyperparameter=True,
-                                    number_point_pull=4,
-                                    Number_data=50)
-    test_gp.run_test()
-    test_gp.plot_test_result()
+    #test_gp = test_gaussian_process(kernel='rbf1d',noise=0.0,
+    #                                search_hyperparameter=True,
+    #                                number_point_pull=4,
+    #                                Number_data=50)
+    #test_gp.run_test()
+    #test_gp.plot_test_result()
 
 
     ##1d (squared exponential kernel) with noise, with fixed hyperparameter 
 
-    #test_gp = test_gaussian_process(kernel='rbf1d',noise=0.2,
-    #                                search_hyperparameter=False,
-    #                                number_point_pull=10,
-    #                                Number_data=20)
-    #test_gp.run_test()
-    #test_gp.plot_test_result()
+    test_gp = test_gaussian_process(kernel='rbf1d',noise=0.2,
+                                    search_hyperparameter=False,
+                                    number_point_pull=10,
+                                    Number_data=20)
+    test_gp.run_test()
+    test_gp.plot_test_result()
 
 
     ##1d (squared exponential kernel) with noise, with free hyperparameter 
