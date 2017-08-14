@@ -67,7 +67,7 @@ def log_likelihood_gp(y, x_axis, kernel, hyperparameter, nugget,
                                      np.dot(inv_kernel_matrix,
                                             (y_ket - y_mean_colomn)))))
 
-    log_likelihood += np.log((1. / (2 * np.pi)**(number_points / 2.)))
+    log_likelihood += -(number_points / 2.) * np.log((2 * np.pi))
     log_likelihood -= 0.5 * log_det_kernel_matrix
 
     return log_likelihood

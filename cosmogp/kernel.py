@@ -1,6 +1,7 @@
 """implementation of different kind of kernel."""
 
 import numpy as np
+from scipy.spatial.distance import pdist, cdist, squareform
 
 def init_rbf(x,y):
 
@@ -118,26 +119,39 @@ def rbf_kernel_2d(x, hyperparameter, new_x=None,
     if y_err is None:
         y_err = np.zeros(len(x))
 
-    if new_x is None:
-        x2 = x
-        add_error = True
-    else:
-        x2 = new_x
-        add_error = False
+#    if new_x is None:
+
+#    else:
+
 
     inv_l = np.array(([hyperparameter[2]**2,-hyperparameter[3]],
                      [-hyperparameter[3],hyperparameter[1]**2]))
     
     inv_l *= 1./(((hyperparameter[1]**2)*(hyperparameter[2]**2))-hyperparameter[3]**2)
     
-    A = (x[:,0]-x2[:,0][:,None])
-    B = (x[:,1]-x2[:,1][:,None])
+    #A = (x[:,0]-x2[:,0][:,None])
+    #B = (x[:,1]-x2[:,1][:,None])
 
-    cov = (hyperparameter[0]**2)*np.exp(-0.5*(A * A * inv_l[0,0] + 2. * A * B * inv_l[0,1] + B * B * inv_l[1,1]))
+    #cov = (hyperparameter[0]**2)*np.exp(-0.5*(A * A * inv_l[0,0] + 2. * A * B * inv_l[0,1] + B * B * inv_l[1,1]))
 
+    if new_x is not None:
+        print 'pouet'
+        add_error = False
+        dist = cdist(x, new_x, metric='mahalanobis', VI=inv_l)
+        cov = (hyperparameter[0]**2)*np.exp(-0.5*dist**2)
+        cov = cov.T
+    else:
+        add_error = True
+        dists = pdist(x, metric='mahalanobis', VI=inv_l)
+        cov = np.exp(-0.5 * dists**2)
+        cov = squareform(cov)
+        np.fill_diagonal(cov, 1)
+    
     if add_error:
         cov += (np.eye(len(y_err))*(y_err**2+floor**2+nugget**2))
-        
+
+    print np.sum(cov)
+
     return cov
 
 
