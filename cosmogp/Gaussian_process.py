@@ -62,6 +62,8 @@ def log_likelihood_gp(y, x_axis, kernel, hyperparameter, nugget,
     else:  #cholesky decomposition
         inv_kernel_matrix, log_det_kernel_matrix = chol(kernel_matrix,
                                                         return_logdet=True)
+        #inv_kernel_matrix = np.linalg.inv(kernel_matrix)
+        #log_det_kernel_matrix = np.sum(np.log(np.linalg.eigvals(kernel_matrix)))
 
     log_likelihood = (-0.5 * (np.dot((y - y_mean),
                                      np.dot(inv_kernel_matrix,
@@ -318,6 +320,7 @@ class Gaussian_process:
                 inv_kernel_matrix = svd(self.kernel_matrix[sn])
             else: #choleski decomposition
                 inv_kernel_matrix = chol(self.kernel_matrix[sn])
+                #inv_kernel_matrix = np.linalg.inv(self.kernel_matrix[sn])
 
             self.inv_kernel_matrix[sn] = inv_kernel_matrix
 
@@ -351,7 +354,7 @@ class Gaussian_process:
                 new_grid = self.new_binning
 
             H = self.kernel(self.Time[sn], self.hyperparameters, new_x=new_grid)
-            K = self.kernel(new_grid, self.hyperparameters)
+            K = self.kernel(new_grid, self.hyperparameters, nugget=self.nugget)
             
             self.covariance_matrix.append(-np.dot(H, np.dot(self.inv_kernel_matrix[sn], H.T)))
 
