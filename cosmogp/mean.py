@@ -86,9 +86,12 @@ def return_mean(y, x, new_x=None, mean_y=None, mean_xaxis=None, diff=None):
         mean_y_shape = 0
 
     if diff is None:
-        y0 = mean_y_shape + np.mean(y - mean_y_shape)
-    else:
-        y0 = mean_y_shape + diff
+        # redefine diff to include the mean
+        #y0 = mean_y_shape + np.mean(y - mean_y_shape)
+        diff = np.mean(y - mean_y_shape)
+    # do in any case
+    #else:
+    y0 = mean_y_shape + diff
 
     if new_x is not None:
         if mean_y is not None:
@@ -96,10 +99,12 @@ def return_mean(y, x, new_x=None, mean_y=None, mean_xaxis=None, diff=None):
                 mean_y_shape = interpolate_mean_1d(mean_xaxis, mean_y, new_x)
             else:
                 mean_y_shape = interpolate_mean_2d(mean_xaxis, mean_y, new_x)
-            if diff is None:
-                new_y0 = mean_y_shape + np.mean(y - mean_y_shape)
-            else:
-                new_y0 = mean_y_shape + diff
+            #   cannot be true anymore
+            #if diff is None:
+            #   y has size len(x) and mean_y_shapehas size len(new_x) : this line can't computee
+            #    new_y0 = mean_y_shape + np.mean(y - mean_y_shape)
+            #else:
+            new_y0 = mean_y_shape + diff
         else:
             new_y0 = y0
         return new_y0
