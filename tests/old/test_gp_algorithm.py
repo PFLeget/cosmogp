@@ -849,7 +849,7 @@ if __name__=='__main__':
 
     test_gp = test_gaussian_process(kernel='rbf2d',noise=0.2,
                                     search_hyperparameter=True,
-                                    number_point_pull=2,
+                                    number_point_pull=5,
                                     Number_data=3,HODLR=False)
     test_gp.run_test()
     test_gp.plot_test_result()
